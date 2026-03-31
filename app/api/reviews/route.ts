@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import connectDB from '@/lib/mongodb';
+import Review from '@/models/Review';
+import Course from '@/models/Course';
+import { requireAuth } from '@/lib/auth';
+import { sanitizeInput, validateComment, validateRating } from '@/lib/validation';
 
 // GET /api/reviews?courseId=...
-export async function GET(req: NextRequest) {
+async function handleGet(req: NextRequest) {
   try {
-    // Check if DATABASE_URL is set
-    if (!process.env.DATABASE_URL) {
-      console.error('DATABASE_URL is not set');
-      return NextResponse.json(
-        { error: 'Database connection not configured. Please set DATABASE_URL in .env.local' },
-        { status: 500 },
-      );
-    }
+    await connectDB();
 
     const { searchParams } = new URL(req.url);
     const courseId = searchParams.get('courseId');
@@ -19,60 +16,51 @@ export async function GET(req: NextRequest) {
     if (!courseId) {
       return NextResponse.json(
         { error: 'courseId query parameter is required' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    // Ensure course exists
-    const course = await prisma.course.upsert({
-      where: { courseId: courseId },
-      update: {},
-      create: {
-        courseId: courseId,
-        name:
-          courseId === 'english'
-            ? 'English Fluency Program'
-            : courseId === 'french'
-            ? 'French Language Journey'
-            : 'Portuguese Mastery Course',
+    // Ensure course exists or create it
+    let course = await Course.findOne({ courseId });
+    if (!course) {
+      const courseName =
+        courseId === 'english'
+          ? 'English Fluency Program'
+          : courseId === 'french'
+          ? 'French Language Journey'
+          : 'Portuguese Mastery Course';
+      
+      course = await Course.create({
+        courseId,
+        title: courseName,
         description: 'Language course',
-        priceCents: 359900,
-        currency: 'inr',
-      },
-    });
+        price: 3599.00,
+        category: 'language',
+        level: 'beginner',
+      });
+    }
 
     // Fetch all reviews for this course with user info
-    const reviews = await prisma.review.findMany({
-      where: { courseId: course.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const reviews = await Review.find({ courseId: course._id })
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
 
     // Calculate average rating and total count
     const totalReviews = reviews.length;
     const averageRating =
       totalReviews > 0
-        ? reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews
+        ? reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / totalReviews
         : 0;
 
     // Format reviews for response
-    const formattedReviews = reviews.map((review) => ({
-      id: review.id,
+    const formattedReviews = reviews.map((review: any) => ({
+      id: review._id.toString(),
       rating: review.rating,
       comment: review.comment,
-      userName: review.user.name || `User ${review.user.id.substring(0, 8)}`,
-      userEmail: review.user.email,
-      createdAt: review.createdAt.toISOString(),
+      userName: review.userId?.name || `User ${review.userId?._id.toString().substring(0, 8)}`,
+      userEmail: review.userId?.email,
+      createdAt: review.createdAt,
     }));
 
     return NextResponse.json({
@@ -81,109 +69,118 @@ export async function GET(req: NextRequest) {
       totalReviews,
     });
   } catch (error) {
-    console.error('Error fetching reviews', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching reviews:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch reviews',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-      },
-      { status: 500 },
+      { error: 'Failed to fetch reviews' },
+      { status: 500 }
     );
   }
 }
 
 // POST /api/reviews
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest, user: any) {
   try {
-    const { courseId, userId, rating, comment } = await req.json();
+    await connectDB();
+
+    const { courseId, rating, comment } = await req.json();
 
     // Validation
-    if (!courseId || !userId || !rating || !comment) {
+    if (!courseId || !rating || !comment) {
       return NextResponse.json(
-        { error: 'courseId, userId, rating, and comment are required' },
-        { status: 400 },
+        { error: 'courseId, rating, and comment are required' },
+        { status: 400 }
       );
     }
 
-    if (rating < 1 || rating > 5) {
+    if (!validateRating(rating)) {
       return NextResponse.json(
         { error: 'Rating must be between 1 and 5' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    if (comment.trim().length === 0) {
+    const commentValidation = validateComment(comment);
+    if (!commentValidation.valid) {
       return NextResponse.json(
-        { error: 'Comment cannot be empty' },
-        { status: 400 },
+        { error: commentValidation.error },
+        { status: 400 }
       );
     }
 
-    // Ensure course exists
-    const course = await prisma.course.upsert({
-      where: { courseId: courseId },
-      update: {},
-      create: {
-        courseId: courseId,
-        name:
-          courseId === 'english'
-            ? 'English Fluency Program'
-            : courseId === 'french'
-            ? 'French Language Journey'
-            : 'Portuguese Mastery Course',
+    // Ensure course exists or create it
+    let course = await Course.findOne({ courseId });
+    if (!course) {
+      const courseName =
+        courseId === 'english'
+          ? 'English Fluency Program'
+          : courseId === 'french'
+          ? 'French Language Journey'
+          : 'Portuguese Mastery Course';
+      
+      course = await Course.create({
+        courseId,
+        title: courseName,
         description: 'Language course',
-        priceCents: 359900,
-        currency: 'inr',
-      },
+        price: 3599.00,
+        category: 'language',
+        level: 'beginner',
+      });
+    }
+
+    // Check for duplicate review
+    const existingReview = await Review.findOne({
+      userId: user._id,
+      courseId: course._id,
     });
 
-    // Check if user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
+    if (existingReview) {
       return NextResponse.json(
-        { error: 'User not found. Please register first.' },
-        { status: 404 },
+        { error: 'You have already submitted a review for this course' },
+        { status: 409 }
       );
     }
+
+    // Sanitize comment
+    const sanitizedComment = sanitizeInput(comment);
 
     // Create review
-    const review = await prisma.review.create({
-      data: {
-        userId: user.id,
-        courseId: course.id,
-        rating,
-        comment: comment.trim(),
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
+    const review = await Review.create({
+      userId: user._id,
+      courseId: course._id,
+      rating,
+      comment: sanitizedComment,
     });
+
+    // Populate user info
+    await review.populate('userId', 'name email');
 
     return NextResponse.json(
       {
-        id: review.id,
+        id: review._id.toString(),
         rating: review.rating,
         comment: review.comment,
-        userName: review.user.name || `User ${user.id.substring(0, 8)}`,
-        createdAt: review.createdAt.toISOString(),
+        userName: review.userId?.name || `User ${user._id.toString().substring(0, 8)}`,
+        createdAt: review.createdAt,
       },
-      { status: 201 },
+      { status: 201 }
     );
-  } catch (error) {
-    console.error('Error creating review', error);
+  } catch (error: any) {
+    console.error('Error creating review:', error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return NextResponse.json(
+        { error: 'You have already submitted a review for this course' },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to create review' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
+export const GET = handleGet;
+export const POST = requireAuth(handlePost);

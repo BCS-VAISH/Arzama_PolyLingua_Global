@@ -1,132 +1,178 @@
 'use client';
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import emailjs from '@emailjs/browser';
+import { Send, User, Mail, MessageSquare, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function ContactForm() {
-  const [fullname, setFullname] = useState("");
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+  const [fullname, setFullname] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
   const [error, setError] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError([]);
 
     if (!fullname || !email || !message) {
-      setError(["All fields are required."]);
-      setSuccess(false);
+      setError(['All fields are required.']);
       return;
     }
 
-    const templateParams = {
-      name: fullname,
-      email: email,
-      message,
-    };
-
+    setSending(true);
     try {
-      const res = await emailjs.send(
-        "service_d9sk2jj",
-        "template_ndrh7th",
-        templateParams,
-        "Z8CyUSeV9zmY19KFb"
+      await emailjs.send(
+        'service_d9sk2jj',
+        'template_ndrh7th',
+        { name: fullname, email, message },
+        'Z8CyUSeV9zmY19KFb'
       );
-
-      console.log("SUCCESS:", res.status, res.text);
       setSuccess(true);
-      setError([]);
-      setFullname("");
-      setEmail("");
-      setMessage("");
-    } catch (err) {
-      console.error("FAILED:", err);
-      setError(["Failed to send message. Try again later."]);
-      setSuccess(false);
+      setFullname('');
+      setEmail('');
+      setMessage('');
+    } catch {
+      setError(['Failed to send message. Please try again later.']);
+    } finally {
+      setSending(false);
     }
   };
 
   return (
-    <section className="py-10 sm:py-16 px-4 bg-white dark:bg-gray-900">
-      <motion.h2
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center mb-8 text-blue-700 dark:text-white"
-      >
-        Registration Form
-      </motion.h2>
-
-      <motion.form
-        onSubmit={handleSubmit}
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-xl w-full max-w-xl mx-auto flex flex-col gap-5"
-      >
-        <div>
-          <label htmlFor="fullname" className="block mb-1 font-semibold text-blue-800 dark:text-white">
-            Full Name
-          </label>
-          <input
-            onChange={(e) => setFullname(e.target.value)}
-            value={fullname}
-            type="text"
-            id="fullname"
-            placeholder="John Doe"
-            className="w-full px-4 py-2 border border-blue-300 dark:border-blue-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="email" className="block mb-1 font-semibold text-blue-800 dark:text-white">
-            Email
-          </label>
-          <input
-            onChange={(e) => setEmail(e.target.value)}
-            value={email}
-            type="email"
-            id="email"
-            placeholder="john@gmail.com"
-            className="w-full px-4 py-2 border border-blue-300 dark:border-blue-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="message" className="block mb-1 font-semibold text-blue-800 dark:text-white">
-            Languages of Interest
-          </label>
-          <textarea
-            onChange={(e) => setMessage(e.target.value)}
-            value={message}
-            id="message"
-            placeholder="Type your courses here..."
-            className="w-full px-4 py-2 border border-blue-300 dark:border-blue-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition h-32 resize-none"
-          />
-        </div>
-
-        <motion.button
-          type="submit"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="bg-blue-600 text-white px-6 py-3 rounded-md font-semibold shadow hover:bg-blue-700 transition"
-        >
-          Send ✉️
-        </motion.button>
-      </motion.form>
-
-      <div className="mt-4 max-w-xl mx-auto text-center">
-        {error.length > 0 &&
-          error.map((e, idx) => (
-            <p key={idx} className="text-red-600 dark:text-red-400 px-4 py-2">{e}</p>
-          ))}
-        {success && (
-          <p className="text-green-600 dark:text-green-400 px-4 py-2">
-            Message sent successfully! ✅
-          </p>
-        )}
+    <motion.form
+      onSubmit={handleSubmit}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="flex flex-col gap-5"
+    >
+      {/* Full Name */}
+      <div>
+        <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-blue-300 mb-2">
+          <User className="w-3.5 h-3.5" /> Full Name
+        </label>
+        <input
+          type="text"
+          value={fullname}
+          onChange={e => setFullname(e.target.value)}
+          placeholder="Enter your full name"
+          className="w-full px-4 py-3 rounded-xl text-white placeholder-blue-400/50 outline-none transition-all text-sm"
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(99,179,237,0.25)',
+          }}
+          onFocus={e => {
+            e.currentTarget.style.border = '1px solid rgba(99,179,237,0.7)';
+            e.currentTarget.style.boxShadow = '0 0 16px rgba(59,130,246,0.2)';
+          }}
+          onBlur={e => {
+            e.currentTarget.style.border = '1px solid rgba(99,179,237,0.25)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        />
       </div>
-    </section>
+
+      {/* Email */}
+      <div>
+        <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-blue-300 mb-2">
+          <Mail className="w-3.5 h-3.5" /> Email Address
+        </label>
+        <input
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          className="w-full px-4 py-3 rounded-xl text-white placeholder-blue-400/50 outline-none transition-all text-sm"
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(99,179,237,0.25)',
+          }}
+          onFocus={e => {
+            e.currentTarget.style.border = '1px solid rgba(99,179,237,0.7)';
+            e.currentTarget.style.boxShadow = '0 0 16px rgba(59,130,246,0.2)';
+          }}
+          onBlur={e => {
+            e.currentTarget.style.border = '1px solid rgba(99,179,237,0.25)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        />
+      </div>
+
+      {/* Query */}
+      <div>
+        <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-blue-300 mb-2">
+          <MessageSquare className="w-3.5 h-3.5" /> Your Query
+        </label>
+        <textarea
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          placeholder="Tell us what you'd like to know — course details, pricing, support..."
+          rows={5}
+          className="w-full px-4 py-3 rounded-xl text-white placeholder-blue-400/50 outline-none transition-all text-sm resize-none"
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(99,179,237,0.25)',
+          }}
+          onFocus={e => {
+            e.currentTarget.style.border = '1px solid rgba(99,179,237,0.7)';
+            e.currentTarget.style.boxShadow = '0 0 16px rgba(59,130,246,0.2)';
+          }}
+          onBlur={e => {
+            e.currentTarget.style.border = '1px solid rgba(99,179,237,0.25)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        />
+      </div>
+
+      {/* Feedback */}
+      <AnimatePresence>
+        {error.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm text-red-300"
+            style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}
+          >
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            {error[0]}
+          </motion.div>
+        )}
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm text-green-300"
+            style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}
+          >
+            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            Message sent! We'll get back to you soon.
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Submit */}
+      <motion.button
+        type="submit"
+        disabled={sending}
+        whileHover={{ scale: sending ? 1 : 1.02 }}
+        whileTap={{ scale: sending ? 1 : 0.97 }}
+        className="w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+        style={{
+          background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+          boxShadow: sending ? 'none' : '0 0 24px rgba(37,99,235,0.45)',
+        }}
+      >
+        {sending ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>
+        ) : (
+          <><Send className="w-4 h-4" /> Send Message</>
+        )}
+      </motion.button>
+    </motion.form>
   );
 }

@@ -1,641 +1,496 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Star, Send, X, CheckCircle, Loader2 } from 'lucide-react';
-import { QRCodeSVG } from 'react-qr-code';
+import React, { useState, useEffect, useRef } from 'react';
+import * as THREE from 'three';
+import { Star, Send, X, MessageSquare, PlayCircle, Lock, CheckCircle, Clock, Users, Globe, Infinity } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import PaymentModal from './PaymentModal';
+import { toast } from './Toaster';
 
-type Review = {
-  id: string;
-  rating: number;
-  comment: string;
-  userName: string;
-  createdAt: string;
-};
-
-type UserData = {
-  id: string;
-  email: string;
-  name: string | null;
-};
-
-type PaymentData = {
-  paymentId: string;
-  qrCode?: string;
-  amount: string;
-  currency: string;
-  courseName: string;
-  enrollmentId: string;
-  orderId?: string;
-  approvalUrl?: string;
-};
-
-type PaymentMethod = 'upi' | 'paypal';
+type Review = { id: string; rating: number; comment: string; userName: string; createdAt: string; };
+type Comment = { id: string; content: string; userName: string; createdAt: string; };
+type UserData = { id: string; email: string; name: string | null; };
 
 export default function EnglishCourse() {
-  const [enrolled, setEnrolled] = useState(false);
+  const router = useRouter();
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [averageRating, setAverageRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
   const [newReview, setNewReview] = useState('');
   const [newRating, setNewRating] = useState(0);
+  const [newComment, setNewComment] = useState('');
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submissionStatus, setSubmissionStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [showRegistration, setShowRegistration] = useState(false);
-  const [showQRCode, setShowQRCode] = useState(false);
-  const [showPaymentMethod, setShowPaymentMethod] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('upi');
-  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'checking' | 'paid'>('pending');
-  const [registrationData, setRegistrationData] = useState({ email: '', name: '' });
+  const [enrolled, setEnrolled] = useState(false);
+  const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [openModule, setOpenModule] = useState<number | null>(null);
+  const [showVideo, setShowVideo] = useState(false);
+  const [activeSection, setActiveSection] = useState<'reviews' | 'comments'>('reviews');
 
   const courseId = 'english';
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [liveOriginalPrice, setLiveOriginalPrice] = useState<number | null>(null);
+  const [liveDiscount, setLiveDiscount] = useState<number>(0);
 
-  // Load user from localStorage on mount
+  const displayPrice = livePrice ?? 2999;
+  const displayOriginal = liveOriginalPrice ?? 5999;
+  const priceStr = `₹${displayPrice.toLocaleString('en-IN')}`;
+  const discountPct = liveDiscount;
+
   useEffect(() => {
-    const savedUser = localStorage.getItem('userData');
-    if (savedUser) {
+    fetch('/api/courses')
+      .then(r => r.json())
+      .then(data => {
+        const c = (data.courses || []).find((x: any) => x.courseId === 'english');
+        if (c) { setLivePrice(c.finalPrice); setLiveOriginalPrice(c.price); setLiveDiscount(c.discount || 0); }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const initAuth = async () => {
       try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error('Error parsing saved user data', e);
-      }
-    }
-    setLoading(false);
-  }, []);
-
-  // Fetch reviews on mount
-  useEffect(() => {
-    fetchReviews();
-  }, []);
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, []);
-
-  // Poll payment status
-  const pollPaymentStatus = async (paymentId: string) => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-
-    pollingIntervalRef.current = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/payment/status?paymentId=${paymentId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.status === 'PAID') {
-            setPaymentStatus('paid');
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-            }
-            setTimeout(() => {
-              window.location.href = `/payment-success?paymentId=${paymentId}`;
-            }, 1500);
-          }
+        const authToken = localStorage.getItem('authToken');
+        const headers: Record<string, string> = {};
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+        const res = await fetch('/api/auth/me', { headers, credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          const u = { id: data.user.id, email: data.user.email, name: data.user.name };
+          setUser(u);
+          localStorage.setItem('userData', JSON.stringify(u));
+          checkEnrollment(u.id);
+        } else {
+          setUser(null);
+          localStorage.removeItem('userData');
+          localStorage.removeItem('authToken');
         }
-      } catch (error) {
-        console.error('Error checking payment status:', error);
+      } catch {
+        const saved = localStorage.getItem('userData');
+        if (saved) { try { const u = JSON.parse(saved); setUser(u); checkEnrollment(u.id); } catch {} }
       }
-    }, 3000);
+      setLoading(false);
+    };
+    initAuth();
+    fetchReviews();
+    fetchComments();
+  }, []);
 
-    setTimeout(() => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    }, 300000);
+  const checkEnrollment = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/enrollment/check?userId=${userId}&courseId=${courseId}`);
+      const data = await res.json();
+      setEnrolled(data.enrolled);
+      setEnrollmentStatus(data.status);
+    } catch {}
   };
 
   const fetchReviews = async () => {
     try {
-      const response = await fetch(`/api/reviews?courseId=${courseId}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.details || 'Failed to fetch reviews');
-      }
-      const data = await response.json();
+      const res = await fetch(`/api/reviews?courseId=${courseId}`);
+      const data = await res.json();
       setReviews(data.reviews || []);
       setAverageRating(data.averageRating || 0);
       setTotalReviews(data.totalReviews || 0);
-    } catch (error) {
-      console.error('Error fetching reviews:', error);
-      setSubmissionStatus({
-        message: error instanceof Error ? error.message : 'Failed to fetch reviews. Please check your database connection.',
-        type: 'error',
-      });
-      setTimeout(() => setSubmissionStatus(null), 5000);
-    }
+    } catch {}
   };
 
-  // Handle registration
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!registrationData.email.trim()) {
-      setSubmissionStatus({ message: 'Please enter your email.', type: 'error' });
-      setTimeout(() => setSubmissionStatus(null), 3000);
-      return;
-    }
-
+  const fetchComments = async () => {
     try {
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: registrationData.email,
-          name: registrationData.name || null,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Registration failed');
-      }
-
-      const userData = await response.json();
-      setUser(userData);
-      localStorage.setItem('userData', JSON.stringify(userData));
-      setShowRegistration(false);
-      setRegistrationData({ email: '', name: '' });
-      setSubmissionStatus({ message: 'Registration successful!', type: 'success' });
-      setTimeout(() => setSubmissionStatus(null), 3000);
-    } catch (error) {
-      console.error('Error registering:', error);
-      setSubmissionStatus({
-        message: error instanceof Error ? error.message : 'Registration failed. Please try again.',
-        type: 'error',
-      });
-      setTimeout(() => setSubmissionStatus(null), 3000);
-    }
+      const res = await fetch(`/api/comments?courseId=${courseId}`);
+      const data = await res.json();
+      setComments(data.comments || []);
+    } catch {}
   };
 
-  // Handle review submission
-  const handleReviewSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!newReview.trim() || newRating === 0) {
-      setSubmissionStatus({ message: 'Please provide a rating and a review.', type: 'error' });
-      setTimeout(() => setSubmissionStatus(null), 3000);
-      return;
-    }
-
+  const handleEnroll = () => {
     if (!user) {
-      setShowRegistration(true);
+      toast.info('Please login to enroll in this course');
+      router.push(`/login?redirect=/EnglishCourse`);
       return;
     }
-
-    try {
-      const response = await fetch('/api/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          courseId,
-          userId: user.id,
-          rating: newRating,
-          comment: newReview,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to submit review');
-      }
-
-      setNewReview('');
-      setNewRating(0);
-      setSubmissionStatus({ message: 'Review submitted successfully!', type: 'success' });
-      setTimeout(() => setSubmissionStatus(null), 3000);
-      
-      // Refresh reviews
-      await fetchReviews();
-    } catch (error) {
-      console.error('Error submitting review:', error);
-      setSubmissionStatus({
-        message: error instanceof Error ? error.message : 'Failed to submit review. Please try again.',
-        type: 'error',
-      });
-      setTimeout(() => setSubmissionStatus(null), 3000);
-    }
+    if (enrolled) { toast.success('You are already enrolled in this course!'); return; }
+    if (enrollmentStatus === 'PENDING') { toast.info('Your payment is pending admin review. Please wait.'); return; }
+    setShowPaymentModal(true);
   };
 
-  // Handle payment method selection
-  const handlePayment = async (method?: PaymentMethod) => {
-    if (!user) {
-      setShowRegistration(true);
-      return;
-    }
-
-    if (!method) {
-      setShowPaymentMethod(true);
-      return;
-    }
-
-    setSelectedPaymentMethod(method);
-    setPaymentLoading(true);
-
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) { toast.error('Please login to submit a review'); return; }
+    if (!newReview.trim() || newRating === 0) { toast.error('Please add a rating and review text'); return; }
+    setSubmittingReview(true);
+    const loadingId = toast.loading('Submitting your review...');
     try {
-      if (method === 'paypal') {
-        // Create PayPal order
-        const response = await fetch('/api/paypal/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            courseId,
-            userEmail: user.email,
-            userName: user.name,
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to create PayPal order');
-        }
-
-        const data = await response.json();
-        
-        // Redirect to PayPal approval URL
-        if (data.approvalUrl) {
-          window.location.href = data.approvalUrl;
-        } else {
-          throw new Error('PayPal approval URL not received');
-        }
-      } else {
-        // UPI payment flow
-        const response = await fetch('/api/checkout/session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            courseId,
-            userEmail: user.email,
-            userName: user.name,
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to create payment session');
-        }
-
-        const data = await response.json();
-        setPaymentData(data);
-        setShowQRCode(true);
-        setShowPaymentMethod(false);
-        setPaymentStatus('pending');
-        setPaymentLoading(false);
-        
-        // Start polling for payment status
-        pollPaymentStatus(data.paymentId);
-      }
-    } catch (error) {
-      console.error('Error initiating payment:', error);
-      setSubmissionStatus({
-        message: error instanceof Error ? error.message : 'Payment failed. Please try again.',
-        type: 'error',
-      });
-      setTimeout(() => setSubmissionStatus(null), 3000);
-      setPaymentLoading(false);
-    }
+      const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ courseId, rating: newRating, comment: newReview }) });
+      const data = await res.json();
+      toast.dismiss(loadingId);
+      if (!res.ok) throw new Error(data.error);
+      setNewReview(''); setNewRating(0);
+      toast.success('Review submitted successfully!');
+      fetchReviews();
+    } catch (err: any) { toast.dismiss(loadingId); toast.error(err.message || 'Failed to submit review'); }
+    finally { setSubmittingReview(false); }
   };
 
-  // Manual payment confirmation (for testing)
-  const handleManualConfirm = async () => {
-    if (!paymentData) return;
-    
-    setPaymentStatus('checking');
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) { toast.error('Please login to post a comment'); return; }
+    if (!newComment.trim()) { toast.error('Please write a comment first'); return; }
+    setSubmittingComment(true);
+    const loadingId = toast.loading('Posting your comment...');
     try {
-      const response = await fetch('/api/payment/status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentId: paymentData.paymentId }),
-      });
-
-      if (response.ok) {
-        setPaymentStatus('paid');
-        setTimeout(() => {
-          window.location.href = `/payment-success?paymentId=${paymentData.paymentId}`;
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('Error confirming payment:', error);
-      setPaymentStatus('pending');
-    }
+      const res = await fetch('/api/comments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ courseId, content: newComment }) });
+      const data = await res.json();
+      toast.dismiss(loadingId);
+      if (!res.ok) throw new Error(data.error);
+      setNewComment('');
+      toast.success('Comment posted!');
+      fetchComments();
+    } catch (err: any) { toast.dismiss(loadingId); toast.error(err.message || 'Failed to post comment'); }
+    finally { setSubmittingComment(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-500">
-        <p className="text-white text-xl">Loading...</p>
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    const geometry = new THREE.BufferGeometry();
+    const positions: number[] = [];
+    for (let i = 0; i < 600; i++) {
+      positions.push((Math.random() - 0.5) * 200, (Math.random() - 0.5) * 200, (Math.random() - 0.5) * 200);
+    }
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const material = new THREE.PointsMaterial({ color: 0x3b82f6, size: 0.5, transparent: true, opacity: 0.7 });
+    const particles = new THREE.Points(geometry, material);
+    scene.add(particles);
+    camera.position.z = 5;
+    const animate = () => { requestAnimationFrame(animate); particles.rotation.x += 0.0004; particles.rotation.y += 0.0004; renderer.render(scene, camera); };
+    animate();
+    const handleResize = () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
+    window.addEventListener('resize', handleResize);
+    return () => { window.removeEventListener('resize', handleResize); renderer.dispose(); };
+  }, []);
+
+  const enrollBtnLabel = enrolled ? '✅ Already Enrolled' : enrollmentStatus === 'PENDING' ? '⏳ Pending Admin Review' : `Enroll Now — ${priceStr}`;
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#0a0f1e,#0d1b3e)' }}>
+      <div className="text-center">
+        <div className="w-12 h-12 rounded-full border-4 border-t-blue-400 border-blue-900 animate-spin mx-auto mb-3" />
+        <p className="text-blue-300 text-sm">Loading course...</p>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-700 to-blue-500 flex flex-col items-center justify-center p-6 text-center">
-      <h1 className="text-4xl font-bold mb-4 text-white">English Fluency Program</h1>
-      <p className="max-w-xl mb-8 text-lg text-white/90">
-        Gain confidence in English speaking, writing, and comprehension. Perfect for professional growth and everyday communication.
-      </p>
+    <>
+      <canvas ref={canvasRef} className="fixed inset-0 z-0 w-full h-full pointer-events-none" />
 
-      {user && (
-        <p className="text-sm font-mono bg-white/10 px-3 py-1 rounded-full mb-4">
-          Logged in as: {user.email}
-        </p>
-      )}
+      <div className="relative z-10 min-h-screen text-white pt-20 pb-16 px-4">
+        <div className="max-w-6xl mx-auto">
 
-      {/* QR Code Payment Modal */}
-      {showQRCode && paymentData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-          <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 relative">
-            <button
-              onClick={() => {
-                setShowQRCode(false);
-                if (pollingIntervalRef.current) {
-                  clearInterval(pollingIntervalRef.current);
-                }
-              }}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Scan QR Code to Pay</h2>
-            <p className="text-gray-600 mb-4">Amount: {paymentData.currency} {paymentData.amount}</p>
-            
-            <div className="flex justify-center mb-4 bg-white p-4 rounded-lg">
-              <QRCodeSVG value={paymentData.qrCode} size={256} />
-            </div>
-            
-            <p className="text-sm text-gray-600 mb-4">
-              Scan this QR code with any UPI app (PhonePe, Google Pay, Paytm, etc.)
-            </p>
-            
-            {paymentStatus === 'pending' && (
-              <div className="flex items-center justify-center gap-2 text-blue-600 mb-4">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Waiting for payment...</span>
-              </div>
-            )}
-            
-            {paymentStatus === 'checking' && (
-              <div className="flex items-center justify-center gap-2 text-blue-600 mb-4">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Verifying payment...</span>
-              </div>
-            )}
-            
-            {paymentStatus === 'paid' && (
-              <div className="flex items-center justify-center gap-2 text-green-600 mb-4">
-                <CheckCircle className="w-5 h-5" />
-                <span>Payment confirmed! Redirecting...</span>
-              </div>
-            )}
-            
-            <div className="flex gap-2">
-              <button
-                onClick={handleManualConfirm}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-              >
-                I've Paid (Confirm)
-              </button>
-              <button
-                onClick={() => {
-                  setShowQRCode(false);
-                  if (pollingIntervalRef.current) {
-                    clearInterval(pollingIntervalRef.current);
-                  }
-                }}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
-              >
-                Cancel
-              </button>
-            </div>
+          {/* ── HERO ── */}
+          <div className="text-center mb-12">
+            <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4 text-blue-300" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.35)' }}>
+              🇬🇧 Language Course
+            </span>
+            <h1 className="text-5xl md:text-6xl font-black mb-4 leading-tight" style={{ background: 'linear-gradient(135deg,#93c5fd,#3b82f6,#1d4ed8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              English Mastery
+            </h1>
+            <p className="text-blue-300 text-lg max-w-xl mx-auto">Speak fluent English confidently for work, travel, interviews, and global communication.</p>
           </div>
-        </div>
-      )}
 
-      {/* Payment Method Selection Modal */}
-      {showPaymentMethod && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Choose Payment Method</h2>
-            <div className="space-y-3">
-              <button
-                onClick={() => handlePayment('upi')}
-                disabled={paymentLoading}
-                className="w-full px-6 py-4 border-2 border-green-500 rounded-lg hover:bg-green-50 transition flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                <div className="flex-1 text-left">
-                  <div className="font-semibold text-gray-900">UPI (QR Code)</div>
-                  <div className="text-sm text-gray-600">Pay using PhonePe, Google Pay, Paytm, etc.</div>
+          {/* Status banners */}
+          {enrollmentStatus === 'PENDING' && (
+            <div className="mb-6 flex items-center gap-3 p-4 rounded-xl text-yellow-200 text-sm" style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.35)' }}>
+              <Clock className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+              Your payment is pending admin verification. You will get access soon.
+            </div>
+          )}
+          {enrolled && (
+            <div className="mb-6 flex items-center gap-3 p-4 rounded-xl text-green-200 text-sm" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)' }}>
+              <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+              You are enrolled! Enjoy your English Mastery Course.
+            </div>
+          )}
+
+          {/* ── COURSE HERO CARD ── */}
+          <div className="rounded-2xl overflow-hidden mb-12" style={{ background: 'linear-gradient(135deg,rgba(15,27,60,0.95),rgba(20,40,90,0.95))', border: '1px solid rgba(59,130,246,0.35)', boxShadow: '0 0 60px rgba(59,130,246,0.15)' }}>
+            <div className="h-1 w-full bg-gradient-to-r from-blue-600 via-cyan-400 to-blue-500" />
+            <div className="p-6 md:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl md:text-3xl font-black text-white mb-2">The Complete English Guide: Speak with Confidence</h2>
+                  <p className="text-blue-300 text-sm mb-3">Arao Zao Macaia · Sarah Williams · Lingua Academy</p>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="flex">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className={`w-4 h-4 ${i < Math.round(averageRating) ? 'text-yellow-400 fill-yellow-400' : 'text-blue-800'}`} />
+                      ))}
+                    </div>
+                    <span className="text-yellow-400 font-bold text-sm">{averageRating}</span>
+                    <span className="text-blue-400 text-sm">({totalReviews} reviews)</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold text-blue-200" style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.4)' }}>Bestseller</span>
+                  </div>
+                  <div className="flex items-baseline gap-3 mb-5">
+                    <span className="text-4xl font-black text-white">{priceStr}</span>
+                    {discountPct > 0 && <span className="text-blue-400 line-through text-lg">₹{displayOriginal.toLocaleString('en-IN')}</span>}
+                    {discountPct > 0 && <span className="px-2 py-1 rounded-lg text-xs font-bold text-green-300" style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)' }}>{discountPct}% OFF</span>}
+                  </div>
                 </div>
-                <div className="text-green-600 font-bold">₹3,599</div>
-              </button>
-              
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                {[
+                  { icon: Star, label: 'Avg Rating', value: '4.7★' },
+                  { icon: Users, label: 'Students', value: '15K+' },
+                  { icon: Globe, label: 'Countries', value: '40+' },
+                  { icon: Infinity, label: 'Access', value: 'Lifetime' },
+                ].map(({ icon: Icon, label, value }) => (
+                  <div key={label} className="rounded-xl p-3 text-center" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                    <Icon className="w-4 h-4 text-blue-400 mx-auto mb-1" />
+                    <div className="text-lg font-black text-blue-200">{value}</div>
+                    <div className="text-xs text-blue-400">{label}</div>
+                  </div>
+                ))}
+              </div>
+
               <button
-                onClick={() => handlePayment('paypal')}
-                disabled={paymentLoading}
-                className="w-full px-6 py-4 border-2 border-blue-500 rounded-lg hover:bg-blue-50 transition flex items-center justify-center gap-3 disabled:opacity-50"
+                onClick={handleEnroll}
+                disabled={enrolled}
+                className="w-full py-4 rounded-xl font-black text-white text-lg transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ocular-glow"
+                style={{ background: enrolled ? 'rgba(34,197,94,0.3)' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', boxShadow: enrolled ? 'none' : '0 0 30px rgba(37,99,235,0.5)' }}
               >
-                <div className="flex-1 text-left">
-                  <div className="font-semibold text-gray-900">PayPal</div>
-                  <div className="text-sm text-gray-600">Pay using PayPal account or card</div>
-                </div>
-                <div className="text-blue-600 font-bold">~$43</div>
+                {enrollBtnLabel}
               </button>
             </div>
-            
-            <button
-              onClick={() => setShowPaymentMethod(false)}
-              className="w-full mt-4 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
-            >
-              Cancel
-            </button>
+          </div>
+
+          {/* ── CONTENT GRID ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+
+            {/* What you'll achieve */}
+            <div className="rounded-2xl p-6" style={{ background: 'rgba(15,27,60,0.8)', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <h3 className="text-xl font-bold text-blue-200 mb-4">What You Will Achieve</h3>
+              <ul className="grid sm:grid-cols-2 gap-2.5">
+                {['Speak fluent English in 60 days','Master pronunciation & accent','Hold confident conversations','Write professional emails','Improve grammar accuracy','Prepare for interviews & exams'].map(item => (
+                  <li key={item} className="flex items-start gap-2 text-blue-100 text-sm">
+                    <CheckCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Who this is for */}
+            <div className="rounded-2xl p-6" style={{ background: 'rgba(15,27,60,0.8)', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <h3 className="text-xl font-bold text-blue-200 mb-4">Who This Course Is For</h3>
+              <div className="grid sm:grid-cols-2 gap-2.5">
+                {[['👶','Beginners'],['🎓','Students'],['💼','Professionals'],['✈️','Travelers'],['🗣️','Public Speakers'],['📚','IELTS / TOEFL Aspirants']].map(([emoji, label]) => (
+                  <div key={label} className="flex items-center gap-2 text-blue-100 text-sm rounded-lg px-3 py-2" style={{ background: 'rgba(59,130,246,0.08)' }}>
+                    <span>{emoji}</span><span>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Curriculum */}
+            <div className="rounded-2xl p-6" style={{ background: 'rgba(15,27,60,0.8)', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <h3 className="text-xl font-bold text-blue-200 mb-4">Course Curriculum</h3>
+              <div className="space-y-2">
+                {['Module 1: English Basics & Pronunciation','Module 2: Daily Conversations','Module 3: Grammar Foundations','Module 4: Business English','Module 5: Writing & Emails','Module 6: Interview & Exam Prep','Module 7: Accent Training','Module 8: Public Speaking'].map((title, idx) => (
+                  <div key={idx} className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.15)' }}>
+                    <button className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-blue-500/10" onClick={() => setOpenModule(openModule === idx ? null : idx)}>
+                      <span className="text-blue-200 text-sm font-medium">{title}</span>
+                      <span className="text-blue-400 text-lg">{openModule === idx ? '−' : '+'}</span>
+                    </button>
+                    {openModule === idx && (
+                      <div className="px-4 pb-3 text-blue-300 text-sm" style={{ background: 'rgba(59,130,246,0.05)' }}>
+                        Interactive lessons, pronunciation drills, quizzes, and conversation practice.
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Instructor */}
+            <div className="rounded-2xl p-6" style={{ background: 'rgba(15,27,60,0.8)', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <h3 className="text-xl font-bold text-blue-200 mb-4">Meet Your Instructor</h3>
+              <div className="flex items-center gap-4 mb-4">
+                <img src="/founder.jpg" className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" style={{ border: '2px solid rgba(59,130,246,0.5)' }} alt="Instructor" />
+                <div>
+                  <div className="text-lg font-bold text-white">James Brown</div>
+                  <div className="text-blue-300 text-sm">Certified ESL Trainer · 12+ years</div>
+                  <p className="text-blue-200 text-sm mt-1">Former instructor at British Council. Specialist in accent neutralization and business English.</p>
+                </div>
+              </div>
+
+              {/* Lessons */}
+              <h3 className="text-lg font-bold text-blue-200 mb-3 mt-5">Lessons</h3>
+              {enrolled ? (
+                <button onClick={() => setShowVideo(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white transition-all hover:opacity-90" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}>
+                  <PlayCircle className="w-5 h-5" />Watch Full Lesson
+                </button>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button onClick={() => setShowVideo(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white transition-all hover:opacity-90 ocular-glow" style={{ background: 'linear-gradient(135deg,#2563eb,#1e40af)' }}>
+                    <PlayCircle className="w-5 h-5" />Watch Preview
+                  </button>
+                  <button onClick={handleEnroll} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-blue-300 text-sm hover:text-white transition-all" style={{ border: '1px solid rgba(59,130,246,0.3)' }}>
+                    <Lock className="w-4 h-4" />Enroll for full access
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* FAQs */}
+            <div className="rounded-2xl p-6" style={{ background: 'rgba(15,27,60,0.8)', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <h3 className="text-xl font-bold text-blue-200 mb-4">FAQs</h3>
+              <div className="space-y-2">
+                {['Is this course for beginners?','How long is the course?','Will I get lifetime access?','Is there a certificate?','Can I prepare for IELTS?'].map((q, i) => (
+                  <div key={i} className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.15)' }}>
+                    <button className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-blue-500/10 transition-colors" onClick={() => setOpenModule(openModule === 100 + i ? null : 100 + i)}>
+                      <span className="text-blue-200 text-sm font-medium">{q}</span>
+                      <span className="text-blue-400 text-lg">{openModule === 100 + i ? '−' : '+'}</span>
+                    </button>
+                    {openModule === 100 + i && (
+                      <div className="px-4 pb-3 text-blue-300 text-sm" style={{ background: 'rgba(59,130,246,0.05)' }}>
+                        Yes! This course is fully beginner-friendly with lifetime access and a completion certificate.
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Special offer */}
+            <div className="rounded-2xl p-6 text-center flex flex-col items-center justify-center" style={{ background: 'linear-gradient(135deg,rgba(37,99,235,0.2),rgba(29,78,216,0.3))', border: '1px solid rgba(59,130,246,0.35)', boxShadow: '0 0 30px rgba(59,130,246,0.15)' }}>
+              <h3 className="text-xl font-bold text-blue-200 mb-3">Limited Time Offer</h3>
+              {discountPct > 0 && <div className="text-blue-400 line-through text-lg mb-1">₹{displayOriginal.toLocaleString('en-IN')}</div>}
+              <div className="text-5xl font-black text-white mb-2">{priceStr}</div>
+              <div className="text-blue-300 text-sm mb-4">Lifetime access · Certificate included · All modules</div>
+              <button onClick={handleEnroll} disabled={enrolled} className="px-8 py-3 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-60 ocular-glow" style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)' }}>
+                {enrolled ? 'Already Enrolled' : 'Get Instant Access'}
+              </button>
+            </div>
+          </div>
+
+          {/* ── REVIEWS & COMMENTS ── */}
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(10,18,45,0.9)', border: '1px solid rgba(59,130,246,0.25)' }}>
+            <div className="flex border-b border-blue-500/20">
+              <button onClick={() => setActiveSection('reviews')} className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-all ${activeSection === 'reviews' ? 'text-blue-200 border-b-2 border-blue-400 bg-blue-500/10' : 'text-blue-400 hover:text-blue-200'}`}>
+                <Star className="w-4 h-4" />Reviews ({totalReviews})
+              </button>
+              <button onClick={() => setActiveSection('comments')} className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-all ${activeSection === 'comments' ? 'text-blue-200 border-b-2 border-blue-400 bg-blue-500/10' : 'text-blue-400 hover:text-blue-200'}`}>
+                <MessageSquare className="w-4 h-4" />Comments ({comments.length})
+              </button>
+            </div>
+
+            <div className="p-6">
+              {activeSection === 'reviews' && (
+                <>
+                  {user ? (
+                    <form onSubmit={handleReviewSubmit} className="mb-6">
+                      <div className="flex items-center justify-center gap-1 mb-3">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`w-8 h-8 cursor-pointer transition-all ${i < newRating ? 'text-yellow-400 fill-yellow-400 scale-110' : 'text-blue-700 hover:text-blue-500'}`} onClick={() => setNewRating(i + 1)} />
+                        ))}
+                      </div>
+                      <div className="flex gap-2 rounded-xl p-2" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)' }}>
+                        <input type="text" value={newReview} onChange={(e) => setNewReview(e.target.value)} placeholder="Share your experience..." className="flex-1 bg-transparent px-2 py-1 text-white placeholder-blue-400/60 outline-none text-sm" maxLength={1000} />
+                        <button type="submit" disabled={submittingReview} className="px-4 py-2 rounded-lg font-semibold text-white text-sm disabled:opacity-50 transition-all hover:opacity-90" style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)' }}>
+                          <Send className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <p className="text-blue-300 text-sm text-center mb-4">
+                      <button onClick={() => router.push('/login?redirect=/EnglishCourse')} className="underline hover:text-white">Login</button> to leave a review
+                    </p>
+                  )}
+                  <div className="max-h-64 overflow-y-auto review-scroll space-y-3">
+                    {reviews.length > 0 ? reviews.map(review => (
+                      <div key={review.id} className="rounded-xl p-4" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                        <div className="flex items-center gap-1 mb-2">{[...Array(5)].map((_, i) => <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-blue-800'}`} />)}</div>
+                        <p className="text-sm text-blue-100 mb-2">{review.comment}</p>
+                        <p className="text-xs text-blue-400">— {review.userName} · {new Date(review.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    )) : <p className="text-center text-blue-400 py-6">No reviews yet. Be the first!</p>}
+                  </div>
+                </>
+              )}
+
+              {activeSection === 'comments' && (
+                <>
+                  {user ? (
+                    <form onSubmit={handleCommentSubmit} className="mb-6">
+                      <div className="flex gap-2 rounded-xl p-2" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)' }}>
+                        <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Ask a question or leave a comment..." className="flex-1 bg-transparent px-2 py-1 text-white placeholder-blue-400/60 outline-none text-sm" maxLength={1000} />
+                        <button type="submit" disabled={submittingComment} className="px-4 py-2 rounded-lg font-semibold text-white text-sm disabled:opacity-50 transition-all hover:opacity-90" style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)' }}>
+                          <Send className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <p className="text-blue-300 text-sm text-center mb-4">
+                      <button onClick={() => router.push('/login?redirect=/EnglishCourse')} className="underline hover:text-white">Login</button> to post a comment
+                    </p>
+                  )}
+                  <div className="max-h-64 overflow-y-auto review-scroll space-y-3">
+                    {comments.length > 0 ? comments.map(comment => (
+                      <div key={comment.id} className="rounded-xl p-4" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                        <p className="text-sm text-blue-100 mb-2">{comment.content}</p>
+                        <p className="text-xs text-blue-400">— {comment.userName} · {new Date(comment.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    )) : <p className="text-center text-blue-400 py-6">No comments yet. Start the conversation!</p>}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* VIDEO MODAL */}
+      {showVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="rounded-2xl overflow-hidden max-w-3xl w-full relative" style={{ background: '#0a0f1e', border: '1px solid rgba(59,130,246,0.4)' }}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-blue-500/20">
+              <span className="text-white font-semibold">English Mastery — Preview</span>
+              <button onClick={() => setShowVideo(false)} className="text-blue-300 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <iframe width="100%" height="400" src="https://www.youtube.com/embed/VIDEO_ID" allowFullScreen className="block" />
           </div>
         </div>
       )}
 
-      {/* Registration Modal */}
-      {showRegistration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Register to Continue</h2>
-            <form onSubmit={handleRegister}>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={registrationData.email}
-                  onChange={(e) => setRegistrationData({ ...registrationData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="name">
-                  Name (optional)
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  value={registrationData.name}
-                  onChange={(e) => setRegistrationData({ ...registrationData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowRegistration(false);
-                    setRegistrationData({ email: '', name: '' });
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition"
-                >
-                  Register
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* PAYMENT MODAL */}
+      {showPaymentModal && (
+        <PaymentModal
+          courseId={courseId}
+          courseName="English Mastery Course"
+          coursePrice={priceStr}
+          priceAmount={displayPrice}
+          userName={user?.name || ''}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={() => setEnrollmentStatus('PENDING')}
+        />
       )}
 
-      <button
-        onClick={handlePayment}
-        disabled={paymentLoading || enrolled}
-        className="bg-white text-blue-700 font-semibold px-8 py-3 rounded-full mb-10 shadow hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {paymentLoading ? 'Processing...' : enrolled ? 'Enrolled ✅' : 'Pay & Enroll Now'}
+      {/* STICKY ENROLL */}
+      <button onClick={handleEnroll} className="sticky-enroll ocular-glow">
+        {enrolled ? '✅ Enrolled' : 'Enroll Now'}
       </button>
-
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-2 text-blue-700">Payment Section</h2>
-        <p className="text-gray-600 mb-4">Choose your preferred payment method</p>
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={() => handlePayment('upi')}
-            disabled={paymentLoading || enrolled}
-            className="bg-green-500 text-white px-5 py-2 rounded-full hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {paymentLoading && selectedPaymentMethod === 'upi' ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              'Pay with UPI (QR Code)'
-            )}
-          </button>
-          <button
-            onClick={() => handlePayment('paypal')}
-            disabled={paymentLoading || enrolled}
-            className="bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {paymentLoading && selectedPaymentMethod === 'paypal' ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              'Pay with PayPal'
-            )}
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md mb-6">
-        <h2 className="text-xl font-semibold mb-4 text-blue-700">Reviews</h2>
-        <div className="flex items-center justify-center mb-2">
-          <span className="text-yellow-500 font-bold mr-2">{averageRating}</span>
-          <div className="flex">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className={`w-5 h-5 ${
-                  i < Math.round(averageRating) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
-                }`}
-              />
-            ))}
-          </div>
-          <span className="ml-2 text-gray-600">({totalReviews} reviews)</span>
-        </div>
-
-        {/* Review Submission Form */}
-        <form onSubmit={handleReviewSubmit} className="mt-4 mb-4">
-          <div className="flex items-center justify-center mb-2">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className={`w-6 h-6 cursor-pointer transition-colors duration-200 ${
-                  i < newRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
-                }`}
-                onClick={() => setNewRating(i + 1)}
-              />
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newReview}
-              onChange={(e) => setNewReview(e.target.value)}
-              placeholder="Leave a review..."
-              className="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-            />
-            <button
-              type="submit"
-              className="bg-blue-700 text-white rounded-lg px-4 py-2 hover:bg-blue-800 transition"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </div>
-          {submissionStatus && (
-            <div
-              className={`mt-2 text-center text-sm ${
-                submissionStatus.type === 'success' ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              {submissionStatus.message}
-            </div>
-          )}
-        </form>
-
-        {/* Display Reviews */}
-        <div className="max-h-48 overflow-y-auto space-y-3">
-          {reviews.length > 0 ? (
-            reviews.map((review) => (
-              <div key={review.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="flex items-center mb-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${
-                        i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <p className="text-sm text-gray-700">{review.comment}</p>
-                <p className="text-xs text-gray-500 mt-1">- {review.userName}</p>
-              </div>
-            ))
-          ) : (
-            <p className="text-center text-gray-500">No reviews yet. Be the first to leave one!</p>
-          )}
-        </div>
-      </div>
-    </main>
+    </>
   );
 }
