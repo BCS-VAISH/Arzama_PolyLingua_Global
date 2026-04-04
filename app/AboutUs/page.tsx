@@ -1,13 +1,16 @@
 "use client";
+import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { motion } from "motion/react";
 import Image from "next/image";
 
 export default function FounderStatement() {
   return (
+    <>
+    <Header />
     <section id="founder" className="py-20 bg-gradient-to-br from-indigo-50 to-purple-100">
       
-      <div className="container mx-auto px-6 flex flex-col-reverse lg:flex-row items-center gap-10">
+      <div className="container mx-auto px-6 flex flex-col-reverse lg:flex-row items-center gap-10 mb-14">
         {/* Text Content */}
         <motion.div
           initial={{ opacity: 0, x: -30 }}
@@ -59,6 +62,6 @@ export default function FounderStatement() {
       </div>
       <Footer />
     </section>
-    
+    </>
   );
 }

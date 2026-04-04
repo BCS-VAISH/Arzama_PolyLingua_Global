@@ -1,15 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/auth';
+import connectDB from '@/lib/mongodb';
+import User from '@/models/User';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getCurrentUser(req);
-    
+    // Read token from cookie using next/headers (reliable in Next.js 15)
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    await connectDB();
+    const user = await User.findById(decoded.userId);
+
     if (!user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     return NextResponse.json({
@@ -22,10 +36,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error('Error getting current user:', error);
-    return NextResponse.json(
-      { error: 'Failed to get user' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get user' }, { status: 500 });
   }
 }
-

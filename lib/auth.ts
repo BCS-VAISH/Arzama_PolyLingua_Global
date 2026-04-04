@@ -33,28 +33,17 @@ export function verifyToken(token: string): JWTPayload | null {
 
 export async function getCurrentUser(req: NextRequest): Promise<IUser | null> {
   try {
-    // Try to get token from Authorization header
-    const authHeader = req.headers.get('authorization');
     let token: string | null = null;
 
+    // Try Authorization header first
+    const authHeader = req.headers.get('authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
-    } else {
-      // Try to get token from cookie
-      const cookieHeader = req.headers.get('cookie');
-      if (cookieHeader) {
-        const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-          const trimmed = cookie.trim();
-          const eqIdx = trimmed.indexOf('=');
-          if (eqIdx > 0) {
-            const key = trimmed.substring(0, eqIdx);
-            const value = trimmed.substring(eqIdx + 1);
-            acc[key] = value;
-          }
-          return acc;
-        }, {} as Record<string, string>);
-        token = cookies['auth-token'] || null;
-      }
+    }
+
+    // Fall back to cookie
+    if (!token) {
+      token = req.cookies.get('auth-token')?.value ?? null;
     }
 
     if (!token) {
