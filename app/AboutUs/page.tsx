@@ -1,7 +1,6 @@
 "use client";
-import Header from '@/components/Header';
 import Footer from "@/components/Footer";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import Image from "next/image";
 
 export default function FounderStatement() {
@@ -17,17 +16,23 @@ export default function FounderStatement() {
           viewport={{ once: true }}
           className="flex-1 bg-gradient-to-br from-white via-purple-50 to-indigo-100 p-8 rounded-3xl shadow-xl"
         >
-          <h2 className="text-3xl font-extrabold mb-4 text-indigo-800">From Our Founder</h2>
-          <p className="text-gray-700 text-lg leading-relaxed">
-            <span className="font-bold text-purple-800">ARZAMA’S PolyLingua Global</span> is your passport to meaningful global communication. Our platform connects learners from around the world through the power of language—teaching Portuguese, English, and French with authenticity, clarity, and cultural insight.
-            Whether you're aiming for professional growth, travel confidence, or personal enrichment, our courses are designed to be practical, interactive, and flexible—available anytime, anywhere.
-            <br />
-            <br />
-            <span className="font-semibold text-indigo-700">Join a multilingual community and start speaking with real-world confidence today.</span>
-            
-
+          <h2 className="text-3xl font-extrabold mb-4 text-indigo-800">About ARZAMA&apos;s PolyLingua Global</h2>
+          <p className="text-gray-700 text-lg leading-relaxed mb-4">
+            We help people speak languages with confidence.
           </p>
-          <p className="text-right font-semibold text-gray-700"> - Arao Zao Macaia</p>
+          <p className="text-gray-700 text-lg leading-relaxed mb-4">
+            <span className="font-bold text-purple-800">ARZAMA&apos;s PolyLingua Global</span> is built around immersive, practical learning designed for real-world communication.
+          </p>
+          <p className="text-gray-700 text-lg leading-relaxed mb-4">
+            Our approach focuses on fluency, confidence, and meaningful interaction-not memorization. Through a combination of structured lessons, real-life content, and community-based practice, learners develop the ability to understand, speak, and think naturally in a new language.
+          </p>
+          <p className="text-gray-700 text-lg leading-relaxed">
+            <span className="font-semibold text-indigo-700">We are building a global learning environment where language is not just studied but lived.</span>
+          </p>
+          <div className="text-right mt-6">
+            <p className="font-bold text-indigo-800">Arao Zau Macaia</p>
+            <p className="text-sm text-purple-700">Multilingual Language Instructor · Founder of ARZAMA&apos;s PolyLingua Global</p>
+          </div>
         </motion.div>
         
         

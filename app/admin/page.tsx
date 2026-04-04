@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Users, MessageSquare, Star, Trash2, LogOut, Loader2, BookOpen,
   BarChart3, TrendingUp, ShieldCheck, CheckCircle, XCircle,
-  Home, DollarSign, Activity, IndianRupee, X,
+  Home, Activity, IndianRupee, X, Database, Plus, Pencil,
 } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 
@@ -17,6 +17,7 @@ type Course = { id: string; title: string; description: string; price: number; d
 type Enrollment = { id: string; userId: string; userName: string; userEmail: string; courseId: string; courseName: string; status: string; createdAt: string; };
 type Stats = { totalUsers: number; totalCourses: number; totalReviews: number; totalComments: number; averageRating: number; totalRevenue: number; };
 type PriceModal = { courseId: string; courseName: string; price: number; discount: number; };
+type CourseForm = { id?: string; title: string; description: string; price: string; discount: string; category: string; level: string; duration: string; };
 
 const COURSES = ['english', 'french', 'portuguese'];
 const COURSE_NAMES: Record<string, string> = {
@@ -53,12 +54,18 @@ export default function AdminDashboard() {
   const [grantCourseId, setGrantCourseId] = useState('english');
   const [granting, setGranting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [seeding, setSeeding] = useState<string | null>(null);
 
   // Price edit modal
   const [priceModal, setPriceModal] = useState<PriceModal | null>(null);
   const [newPrice, setNewPrice] = useState('');
   const [newDiscount, setNewDiscount] = useState('');
   const [savingPrice, setSavingPrice] = useState(false);
+
+  // Course create/edit modal
+  const EMPTY_FORM: CourseForm = { title: '', description: '', price: '', discount: '0', category: 'english', level: 'beginner', duration: '' };
+  const [courseFormModal, setCourseFormModal] = useState<CourseForm | null>(null);
+  const [savingCourse, setSavingCourse] = useState(false);
 
   useEffect(() => { checkAuth(); }, []);
   useEffect(() => {
@@ -96,22 +103,18 @@ export default function AdminDashboard() {
       if (activeTab === 'courses') {
         const r = await fetch('/api/courses'); const d = await r.json();
         const dbCourses: any[] = d.courses || [];
-        const merged = COURSES.map(slug => {
-          const found = dbCourses.find((c: any) => c.courseId === slug);
-          return {
-            id: slug,
-            courseId: slug,
-            title: found?.title || COURSE_NAMES[slug],
-            description: '',
-            price: found?.price ?? 0,
-            discount: found?.discount ?? 0,
-            category: 'Language',
-            thumbnail: undefined,
-            level: 'beginner',
-            createdAt: new Date().toISOString(),
-          };
-        });
-        setCourses(merged);
+        setCourses(dbCourses.map((c: any) => ({
+          id: c.id,
+          courseId: c.courseId,
+          title: c.title,
+          description: c.description || '',
+          price: c.price ?? 0,
+          discount: c.discount ?? 0,
+          category: c.category || 'Language',
+          thumbnail: undefined,
+          level: c.level || 'beginner',
+          createdAt: new Date().toISOString(),
+        })));
       } else if (activeTab === 'users') {
         const r = await fetch('/api/admin/users'); const d = await r.json(); setUsers(d.users);
       } else if (activeTab === 'reviews') {
@@ -169,6 +172,65 @@ export default function AdminDashboard() {
       // Refresh stats revenue if on dashboard
       if (activeTab === 'dashboard') fetchStats();
     } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Failed to update enrollment'); }
+  };
+
+  const handleDeleteCourse = async (courseId: string, courseTitle: string) => {
+    if (!confirm(`Delete "${courseTitle}"? This cannot be undone.`)) return;
+    const id = toast.loading('Deleting course...');
+    try {
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const r = await fetch(`/api/admin/courses/${courseId}`, { method: 'DELETE', headers, credentials: 'include' });
+      const d = await r.json();
+      toast.dismiss(id);
+      if (!r.ok) throw new Error(d.error);
+      setCourses(prev => prev.filter(c => c.id !== courseId));
+      toast.success(`"${courseTitle}" deleted`);
+    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Failed to delete course'); }
+  };
+
+  const handleSaveCourse = async () => {
+    if (!courseFormModal) return;
+    const { id, title, description, price, discount, category, level, duration } = courseFormModal;
+    if (!title.trim() || !description.trim() || !price || !category || !level) {
+      toast.error('Please fill in all required fields'); return;
+    }
+    setSavingCourse(true);
+    const loadingId = toast.loading(id ? 'Updating course...' : 'Creating course...');
+    try {
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const body = JSON.stringify({ title: title.trim(), description: description.trim(), price: Number(price), discount: Number(discount) || 0, category: category.trim(), level, duration: duration.trim() });
+      const r = id
+        ? await fetch(`/api/admin/courses/${id}`, { method: 'PUT', headers, credentials: 'include', body })
+        : await fetch('/api/admin/courses', { method: 'POST', headers, credentials: 'include', body });
+      const d = await r.json();
+      toast.dismiss(loadingId);
+      if (!r.ok) throw new Error(d.error);
+      toast.success(id ? 'Course updated successfully' : 'Course created successfully');
+      setCourseFormModal(null);
+      fetchData();
+    } catch (err: any) { toast.dismiss(loadingId); toast.error(err.message || 'Failed to save course'); }
+    finally { setSavingCourse(false); }
+  };
+
+  const handleSeed = async (category: string, label: string) => {
+    setSeeding(category);
+    const id = toast.loading(`Seeding ${label} courses...`);
+    try {
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const r = await fetch(`/api/admin/seed?category=${category}`, { method: 'POST', headers, credentials: 'include' });
+      const d = await r.json();
+      toast.dismiss(id);
+      if (!r.ok) throw new Error(d.error);
+      toast.success(d.message);
+      fetchData();
+    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Seeding failed'); }
+    finally { setSeeding(null); }
   };
 
   const openPriceModal = (course: Course) => {
@@ -415,10 +477,35 @@ export default function AdminDashboard() {
                 {/* ── COURSES — Price edit only ── */}
                 {activeTab === 'courses' && (
                   <div>
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
                       <div>
                         <h2 className="text-lg font-bold text-white">Course Pricing</h2>
                         <p className="text-white/40 text-xs mt-0.5">Click "Edit Price" to update a course's price. Changes reflect immediately on course pages.</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setCourseFormModal({ ...EMPTY_FORM })}
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+                          style={{ background: 'linear-gradient(135deg,#0ea5e9,#0284c7)', boxShadow: '0 0 16px rgba(14,165,233,0.35)' }}
+                        >
+                          <Plus className="w-4 h-4" />Add Course
+                        </button>
+                        {[
+                          { category: 'english', label: 'English', color: 'linear-gradient(135deg,#2563eb,#1d4ed8)', glow: 'rgba(37,99,235,0.35)' },
+                          { category: 'french', label: 'French', color: 'linear-gradient(135deg,#7c3aed,#6d28d9)', glow: 'rgba(124,58,237,0.35)' },
+                          { category: 'portuguese', label: 'Portuguese', color: 'linear-gradient(135deg,#059669,#065f46)', glow: 'rgba(16,185,129,0.35)' },
+                        ].map(({ category, label, color, glow }) => (
+                          <button
+                            key={category}
+                            onClick={() => handleSeed(category, label)}
+                            disabled={seeding !== null}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ background: color, boxShadow: `0 0 16px ${glow}` }}
+                          >
+                            <Database className="w-4 h-4" />
+                            {seeding === category ? 'Seeding...' : `Seed ${label}`}
+                          </button>
+                        ))}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -463,13 +550,39 @@ export default function AdminDashboard() {
                                 </div>
                               </div>
 
-                              <button
-                                onClick={() => openPriceModal(course)}
-                                className="w-full px-3 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 flex items-center justify-center gap-2"
-                                style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', boxShadow: '0 0 16px rgba(37,99,235,0.3)' }}
-                              >
-                                <IndianRupee className="w-4 h-4" />Edit Price
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setCourseFormModal({
+                                    id: course.id,
+                                    title: course.title,
+                                    description: course.description,
+                                    price: String(course.price),
+                                    discount: String(course.discount),
+                                    category: course.category,
+                                    level: course.level,
+                                    duration: '',
+                                  })}
+                                  className="flex-1 px-3 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                                  style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', boxShadow: '0 0 16px rgba(37,99,235,0.3)' }}
+                                >
+                                  <Pencil className="w-4 h-4" />Edit
+                                </button>
+                                <button
+                                  onClick={() => openPriceModal(course)}
+                                  className="flex-1 px-3 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                                  style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)' }}
+                                >
+                                  <IndianRupee className="w-4 h-4" />Price
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCourse(course.id, course.title)}
+                                  className="px-3 py-2.5 rounded-xl text-sm text-red-400 hover:text-white hover:bg-red-500/80 transition-all flex items-center justify-center"
+                                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                           </motion.div>
                         );
@@ -719,6 +832,109 @@ export default function AdminDashboard() {
                     style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', boxShadow: '0 0 20px rgba(37,99,235,0.4)' }}>
                     {savingPrice ? <Loader2 className="w-4 h-4 animate-spin" /> : <IndianRupee className="w-4 h-4" />}
                     Save Price
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── CREATE / EDIT COURSE MODAL ── */}
+      {courseFormModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
+          <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="max-w-lg w-full rounded-2xl overflow-hidden max-h-[92vh] overflow-y-auto"
+            style={{ background: 'rgba(10,15,35,0.98)', border: '1px solid rgba(59,130,246,0.3)', boxShadow: '0 0 50px rgba(59,130,246,0.2)' }}>
+            <div className="h-1 w-full bg-gradient-to-r from-blue-600 via-cyan-400 to-blue-500" />
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-lg font-bold text-white">{courseFormModal.id ? 'Edit Course' : 'Add New Course'}</h3>
+                <button onClick={() => setCourseFormModal(null)} className="text-white/40 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"><X className="w-5 h-5" /></button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-semibold text-blue-300 uppercase tracking-wider mb-1.5">Course Title *</label>
+                  <input type="text" value={courseFormModal.title} onChange={e => setCourseFormModal(p => p && ({ ...p, title: e.target.value }))}
+                    placeholder="e.g. English for Business Communication"
+                    className="w-full px-4 py-3 rounded-xl text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(59,130,246,0.25)' }} />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-xs font-semibold text-blue-300 uppercase tracking-wider mb-1.5">Description *</label>
+                  <textarea value={courseFormModal.description} onChange={e => setCourseFormModal(p => p && ({ ...p, description: e.target.value }))}
+                    placeholder="Short course description..."
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-xl text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(59,130,246,0.25)' }} />
+                </div>
+
+                {/* Price + Discount */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-blue-300 uppercase tracking-wider mb-1.5">Price (₹) *</label>
+                    <input type="number" min="0" value={courseFormModal.price} onChange={e => setCourseFormModal(p => p && ({ ...p, price: e.target.value }))}
+                      placeholder="e.g. 2999"
+                      className="w-full px-4 py-3 rounded-xl text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(59,130,246,0.25)' }} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-blue-300 uppercase tracking-wider mb-1.5">Discount (%)</label>
+                    <input type="number" min="0" max="100" value={courseFormModal.discount} onChange={e => setCourseFormModal(p => p && ({ ...p, discount: e.target.value }))}
+                      placeholder="0"
+                      className="w-full px-4 py-3 rounded-xl text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(59,130,246,0.25)' }} />
+                  </div>
+                </div>
+
+                {/* Category + Level */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-blue-300 uppercase tracking-wider mb-1.5">Category *</label>
+                    <select value={courseFormModal.category} onChange={e => setCourseFormModal(p => p && ({ ...p, category: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      style={{ background: 'rgba(15,27,60,0.95)', border: '1px solid rgba(59,130,246,0.25)' }}>
+                      <option value="english">English</option>
+                      <option value="french">French</option>
+                      <option value="portuguese">Portuguese</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-blue-300 uppercase tracking-wider mb-1.5">Level *</label>
+                    <select value={courseFormModal.level} onChange={e => setCourseFormModal(p => p && ({ ...p, level: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      style={{ background: 'rgba(15,27,60,0.95)', border: '1px solid rgba(59,130,246,0.25)' }}>
+                      <option value="beginner">Beginner</option>
+                      <option value="intermediate">Intermediate</option>
+                      <option value="advanced">Advanced</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Duration */}
+                <div>
+                  <label className="block text-xs font-semibold text-blue-300 uppercase tracking-wider mb-1.5">Duration</label>
+                  <input type="text" value={courseFormModal.duration} onChange={e => setCourseFormModal(p => p && ({ ...p, duration: e.target.value }))}
+                    placeholder="e.g. 6 weeks"
+                    className="w-full px-4 py-3 rounded-xl text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(59,130,246,0.25)' }} />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setCourseFormModal(null)}
+                    className="flex-1 py-2.5 rounded-xl text-white/60 hover:text-white text-sm transition-all"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    Cancel
+                  </button>
+                  <button onClick={handleSaveCourse} disabled={savingCourse}
+                    className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60 transition-all hover:opacity-90"
+                    style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', boxShadow: '0 0 20px rgba(37,99,235,0.4)' }}>
+                    {savingCourse ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
+                    {courseFormModal.id ? 'Save Changes' : 'Create Course'}
                   </button>
                 </div>
               </div>

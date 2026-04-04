@@ -9,6 +9,20 @@ const COURSE_LABELS: Record<string, string> = {
   english: 'English Mastery Course',
   french: 'French Mastery Course',
   portuguese: 'Portuguese Mastery Course',
+  'english-core-foundations': 'Core English Foundations',
+  'english-academic-university': 'English for Academic & University Success',
+  'english-real-life-communication': 'English for Real-Life Communication',
+  'english-travel-everyday': 'English for Travel & Everyday Communication',
+  'english-business-professional': 'English for Business & Professional Communication',
+  'english-presentations-public-speaking': 'English for Presentations & Public Speaking',
+  'french-real-life-communication': 'French for Real-Life Communication',
+  'french-travel-cultural': 'French for Travel & Cultural Interaction',
+  'french-academic': 'French for Academic Purposes',
+  'french-conversational-mastery': 'Conversational French Mastery',
+  'portuguese-real-life-communication': 'Portuguese for Real-Life Communication',
+  'portuguese-travel-cultural': 'Portuguese for Travel & Cultural Integration',
+  'portuguese-business-professional': 'Portuguese for Business & Professional Use',
+  'portuguese-conversational-mastery': 'Conversational Portuguese Mastery',
 };
 
 async function sendAdminEmail(opts: {

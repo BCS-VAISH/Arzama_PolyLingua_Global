@@ -31,7 +31,7 @@ async function handleGet(req: NextRequest, user: any) {
     return NextResponse.json({
       id: course._id.toString(),
       courseId: course.courseId,
-      title: course.title || course.name,
+      title: course.title,
       description: course.description,
       price: course.price || (course.priceCents ? course.priceCents / 100 : 0),
       discount: course.discount || 0,

@@ -3,7 +3,8 @@ import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
   email: string;
-  password: string;
+  password?: string;
+  googleId?: string;
   name?: string;
   role: 'user' | 'admin';
   createdAt: Date;
@@ -23,9 +24,12 @@ const UserSchema: Schema = new Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
       minlength: [6, 'Password must be at least 6 characters'],
-      select: false, // Don't return password by default
+      select: false,
+    },
+    googleId: {
+      type: String,
+      sparse: true,
     },
     name: {
       type: String,

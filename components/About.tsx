@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 const features = [
   { emoji: '🌐', text: 'Multilingual Community', bg: 'bg-gradient-to-br from-blue-100 to-blue-300' },

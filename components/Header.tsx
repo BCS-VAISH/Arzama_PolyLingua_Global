@@ -134,26 +134,42 @@ export default function Header() {
             {!loading && (
               <div className="flex items-center gap-2 ml-3">
                 {isAdmin ? (
-                  <Link
-                    href="/admin"
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
-                    style={{
-                      background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
-                      color: '#fff',
-                      boxShadow: '0 0 16px rgba(99,102,241,0.4)',
-                    }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLElement).style.boxShadow = '0 0 24px rgba(99,102,241,0.7)';
-                      (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.boxShadow = '0 0 16px rgba(99,102,241,0.4)';
-                      (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-                    }}
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    Admin Dashboard
-                  </Link>
+                  <>
+                    <Link
+                      href="/admin"
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
+                      style={{
+                        background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                        color: '#fff',
+                        boxShadow: '0 0 16px rgba(99,102,241,0.4)',
+                      }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.boxShadow = '0 0 24px rgba(99,102,241,0.7)';
+                        (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.boxShadow = '0 0 16px rgba(99,102,241,0.4)';
+                        (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Admin Dashboard
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+                      style={{ color: '#fca5a5' }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.15)';
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.background = 'transparent';
+                      }}
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </>
                 ) : user ? (
                   <>
                     <Link
@@ -275,19 +291,29 @@ export default function Header() {
             {!loading && (
               <div className="mt-2 pt-2 flex flex-col gap-1" style={{ borderTop: '1px solid rgba(99,179,237,0.15)' }}>
                 {isAdmin ? (
-                  <Link
-                    href="/admin"
-                    className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200"
-                    style={{
-                      background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
-                      color: '#fff',
-                      boxShadow: '0 0 16px rgba(99,102,241,0.3)',
-                    }}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    Admin Dashboard
-                  </Link>
+                  <>
+                    <Link
+                      href="/admin"
+                      className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200"
+                      style={{
+                        background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                        color: '#fff',
+                        boxShadow: '0 0 16px rgba(99,102,241,0.3)',
+                      }}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Admin Dashboard
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200"
+                      style={{ color: '#fca5a5' }}
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </>
                 ) : user ? (
                   <>
                     <Link
