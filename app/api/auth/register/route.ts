@@ -7,15 +7,16 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   try {
-    // Connect to database first
     try {
       await connectDB();
-    } catch (dbError: any) {
+    } catch (dbError: unknown) {
       console.error('Database connection error:', dbError);
       return NextResponse.json(
-        { 
+        {
           error: 'Database connection failed. Please check your MongoDB connection string in .env.local',
-          details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+          details: process.env.NODE_ENV === 'development'
+            ? (dbError instanceof Error ? dbError.message : String(dbError))
+            : undefined,
         },
         { status: 500 }
       );
@@ -23,7 +24,6 @@ export async function POST(req: NextRequest) {
 
     const { email, password, name } = await req.json();
 
-    // Validation
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
@@ -46,7 +46,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return NextResponse.json(
@@ -55,14 +54,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Sanitize name if provided
     const sanitizedName = name ? sanitizeInput(name) : undefined;
 
-    // Hash password before saving
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create user with hashed password
     let user;
     try {
       user = await User.create({
@@ -71,9 +67,12 @@ export async function POST(req: NextRequest) {
         name: sanitizedName,
         role: 'user',
       });
-    } catch (createError: any) {
+    } catch (createError: unknown) {
       console.error('User creation error:', createError);
-      if (createError.code === 11000 || createError.message?.includes('duplicate')) {
+      if (
+        (createError as { code?: number }).code === 11000 ||
+        (createError instanceof Error && createError.message?.includes('duplicate'))
+      ) {
         return NextResponse.json(
           { error: 'Email already registered' },
           { status: 409 }
@@ -82,10 +81,8 @@ export async function POST(req: NextRequest) {
       throw createError;
     }
 
-    // Generate token
     const token = generateToken(user);
 
-    // Return user data (without password)
     const userData = {
       id: user._id.toString(),
       email: user.email,
@@ -94,43 +91,36 @@ export async function POST(req: NextRequest) {
     };
 
     const response = NextResponse.json(
-      {
-        message: 'Registration successful',
-        user: userData,
-        token,
-      },
+      { message: 'Registration successful', user: userData, token },
       { status: 201 }
     );
 
-    // Set HTTP-only cookie
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error registering user:', error);
-    
-    if (error.code === 11000) {
+
+    if ((error as { code?: number }).code === 11000) {
       return NextResponse.json(
         { error: 'Email already registered' },
         { status: 409 }
       );
     }
 
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Registration error details:', error);
-    
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to register user',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+        details: process.env.NODE_ENV === 'development'
+          ? (error instanceof Error ? error.message : String(error))
+          : undefined,
       },
       { status: 500 }
     );
   }
 }
-

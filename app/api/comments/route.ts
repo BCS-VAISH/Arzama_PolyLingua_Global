@@ -4,6 +4,14 @@ import Comment from '@/models/Comment';
 import Course from '@/models/Course';
 import { requireAuth } from '@/lib/auth';
 import { sanitizeInput, validateComment } from '@/lib/validation';
+import { IUser } from '@/models/User';
+
+type PopulatedComment = {
+  _id: { toString(): string };
+  content: string;
+  userId?: { name?: string; email?: string; _id: { toString(): string } } | null;
+  createdAt: Date;
+};
 
 // GET /api/comments?courseId=...
 async function handleGet(req: NextRequest) {
@@ -20,7 +28,6 @@ async function handleGet(req: NextRequest) {
       );
     }
 
-    // Ensure course exists or create it
     let course = await Course.findOne({ courseId });
     if (!course) {
       const courseName =
@@ -29,7 +36,7 @@ async function handleGet(req: NextRequest) {
           : courseId === 'french'
           ? 'French Language Journey'
           : 'Portuguese Mastery Course';
-      
+
       course = await Course.create({
         courseId,
         title: courseName,
@@ -40,14 +47,12 @@ async function handleGet(req: NextRequest) {
       });
     }
 
-    // Fetch all comments for this course with user info
     const comments = await Comment.find({ courseId: course._id })
       .populate('userId', 'name email')
       .sort({ createdAt: -1 })
       .lean();
 
-    // Format comments for response
-    const formattedComments = comments.map((comment: any) => ({
+    const formattedComments = (comments as PopulatedComment[]).map((comment) => ({
       id: comment._id.toString(),
       content: comment.content,
       userName: comment.userId?.name || `User ${comment.userId?._id.toString().substring(0, 8)}`,
@@ -55,9 +60,7 @@ async function handleGet(req: NextRequest) {
       createdAt: comment.createdAt,
     }));
 
-    return NextResponse.json({
-      comments: formattedComments,
-    });
+    return NextResponse.json({ comments: formattedComments });
   } catch (error) {
     console.error('Error fetching comments:', error);
     return NextResponse.json(
@@ -68,13 +71,12 @@ async function handleGet(req: NextRequest) {
 }
 
 // POST /api/comments
-async function handlePost(req: NextRequest, user: any) {
+async function handlePost(req: NextRequest, user: IUser) {
   try {
     await connectDB();
 
     const { courseId, content } = await req.json();
 
-    // Validation
     if (!courseId || !content) {
       return NextResponse.json(
         { error: 'courseId and content are required' },
@@ -90,7 +92,6 @@ async function handlePost(req: NextRequest, user: any) {
       );
     }
 
-    // Ensure course exists or create it
     let course = await Course.findOne({ courseId });
     if (!course) {
       const courseName =
@@ -99,7 +100,7 @@ async function handlePost(req: NextRequest, user: any) {
           : courseId === 'french'
           ? 'French Language Journey'
           : 'Portuguese Mastery Course';
-      
+
       course = await Course.create({
         courseId,
         title: courseName,
@@ -110,24 +111,22 @@ async function handlePost(req: NextRequest, user: any) {
       });
     }
 
-    // Sanitize content
     const sanitizedContent = sanitizeInput(content);
 
-    // Create comment
     const comment = await Comment.create({
       userId: user._id,
       courseId: course._id,
       content: sanitizedContent,
     });
 
-    // Populate user info
     await comment.populate('userId', 'name email');
+    const populated = comment.userId as unknown as { name?: string } | null;
 
     return NextResponse.json(
       {
         id: comment._id.toString(),
         content: comment.content,
-        userName: comment.userId?.name || `User ${user._id.toString().substring(0, 8)}`,
+        userName: populated?.name || `User ${user._id.toString().substring(0, 8)}`,
         createdAt: comment.createdAt,
       },
       { status: 201 }
@@ -143,4 +142,3 @@ async function handlePost(req: NextRequest, user: any) {
 
 export const GET = handleGet;
 export const POST = requireAuth(handlePost);
-

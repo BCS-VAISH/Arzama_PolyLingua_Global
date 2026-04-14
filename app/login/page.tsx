@@ -36,8 +36,8 @@ function LoginContent() {
       toast.success('Welcome back!');
       router.push(redirect);
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.');
+    } catch (err: unknown) {
+      setError((err instanceof Error ? err.message : null) || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }

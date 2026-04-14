@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Review from '@/models/Review';
 import { requireAdmin } from '@/lib/auth';
+import { IUser } from '@/models/User';
 
 // DELETE /api/reviews/[id]
-async function handleDelete(req: NextRequest, user: any) {
+async function handleDelete(req: NextRequest, _user: IUser) {
   try {
     await connectDB();
 
@@ -44,4 +45,3 @@ async function handleDelete(req: NextRequest, user: any) {
 export async function DELETE(req: NextRequest) {
   return requireAdmin(handleDelete)(req);
 }
-

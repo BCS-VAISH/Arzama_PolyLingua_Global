@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Comment from '@/models/Comment';
 import { requireAdmin } from '@/lib/auth';
+import { IUser } from '@/models/User';
+
+type PopulatedComment = {
+  _id: { toString(): string };
+  content: string;
+  userId?: { name?: string; email?: string; _id: { toString(): string } } | null;
+  courseId?: { courseId?: string; title?: string } | null;
+  createdAt: Date;
+};
 
 // GET /api/admin/comments
-async function handleGet(req: NextRequest, user: any) {
+async function handleGet(_req: NextRequest, _user: IUser) {
   try {
     await connectDB();
 
@@ -14,7 +23,7 @@ async function handleGet(req: NextRequest, user: any) {
       .sort({ createdAt: -1 })
       .lean();
 
-    const formattedComments = comments.map((comment: any) => ({
+    const formattedComments = (comments as PopulatedComment[]).map((comment) => ({
       id: comment._id.toString(),
       content: comment.content,
       userName: comment.userId?.name || `User ${comment.userId?._id.toString().substring(0, 8)}`,
@@ -37,4 +46,3 @@ async function handleGet(req: NextRequest, user: any) {
 }
 
 export const GET = requireAdmin(handleGet);
-

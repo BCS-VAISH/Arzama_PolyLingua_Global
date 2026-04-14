@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Review from '@/models/Review';
 import { requireAdmin } from '@/lib/auth';
+import { IUser } from '@/models/User';
+
+type PopulatedReview = {
+  _id: { toString(): string };
+  rating: number;
+  comment: string;
+  userId?: { name?: string; email?: string; _id: { toString(): string } } | null;
+  courseId?: { courseId?: string; title?: string } | null;
+  createdAt: Date;
+};
 
 // GET /api/admin/reviews
-async function handleGet(req: NextRequest, user: any) {
+async function handleGet(_req: NextRequest, _user: IUser) {
   try {
     await connectDB();
 
@@ -14,7 +24,7 @@ async function handleGet(req: NextRequest, user: any) {
       .sort({ createdAt: -1 })
       .lean();
 
-    const formattedReviews = reviews.map((review: any) => ({
+    const formattedReviews = (reviews as PopulatedReview[]).map((review) => ({
       id: review._id.toString(),
       rating: review.rating,
       comment: review.comment,
@@ -38,4 +48,3 @@ async function handleGet(req: NextRequest, user: any) {
 }
 
 export const GET = requireAdmin(handleGet);
-

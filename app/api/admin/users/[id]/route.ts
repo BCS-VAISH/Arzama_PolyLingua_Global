@@ -11,11 +11,11 @@ import { IUser } from '@/models/User';
 async function handleDelete(
   req: NextRequest,
   adminUser: IUser,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
-    const { id } = params;
+    const { id } = await context.params;
 
     const userToDelete = await User.findById(id);
     if (!userToDelete) {
@@ -45,7 +45,7 @@ async function handleDelete(
 // Next.js App Router dynamic route handlers need to wrap with requireAdmin differently
 export async function DELETE(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   return requireAdmin((r: NextRequest, user: IUser) =>
     handleDelete(r, user, context)

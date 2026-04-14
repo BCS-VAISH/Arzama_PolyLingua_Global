@@ -38,9 +38,9 @@ export default function AdminLogin() {
 
       // Redirect to admin dashboard
       router.push('/admin');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      setError(error.message || 'Login failed. Please try again.');
+      setError((error instanceof Error ? error.message : null) || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }

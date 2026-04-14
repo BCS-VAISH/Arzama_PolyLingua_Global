@@ -1,12 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   const response = NextResponse.json(
     { message: 'Logout successful' },
     { status: 200 }
   );
 
-  // Clear auth cookie
   response.cookies.set('auth-token', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -16,4 +15,3 @@ export async function POST(req: NextRequest) {
 
   return response;
 }
-

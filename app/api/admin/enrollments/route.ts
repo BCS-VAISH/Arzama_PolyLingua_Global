@@ -5,6 +5,16 @@ import User from '@/models/User';
 import { requireAdmin } from '@/lib/auth';
 import { IUser } from '@/models/User';
 
+type LeanEnrollment = {
+  _id: { toString(): string };
+  userId: { toString(): string };
+  courseId: string;
+  status: string;
+  createdAt: Date;
+};
+
+type LeanUser = { name?: string; email?: string } | null;
+
 const courseNames: Record<string, string> = {
   english: 'English Mastery Course',
   french: 'French Mastery Course',
@@ -12,7 +22,7 @@ const courseNames: Record<string, string> = {
 };
 
 // GET /api/admin/enrollments - list all enrollments with user info
-async function handleGet(req: NextRequest, adminUser: IUser) {
+async function handleGet(__req: NextRequest, _adminUser: IUser) {
   try {
     await connectDB();
 
@@ -21,10 +31,8 @@ async function handleGet(req: NextRequest, adminUser: IUser) {
       .lean();
 
     const withUsers = await Promise.all(
-      (enrollments as any[]).map(async (e) => {
-        const user = (await User.findById(e.userId)
-          .select('name email')
-          .lean()) as any;
+      (enrollments as LeanEnrollment[]).map(async (e) => {
+        const user = (await User.findById(e.userId).select('name email').lean()) as LeanUser;
         return {
           id: e._id.toString(),
           userId: e.userId.toString(),
@@ -41,15 +49,12 @@ async function handleGet(req: NextRequest, adminUser: IUser) {
     return NextResponse.json({ enrollments: withUsers });
   } catch (error) {
     console.error('Error fetching enrollments:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch enrollments' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch enrollments' }, { status: 500 });
   }
 }
 
-// POST /api/admin/enrollments - update enrollment status (approve/revoke)
-async function handlePost(req: NextRequest, adminUser: IUser) {
+// POST /api/admin/enrollments - update enrollment status
+async function handlePost(req: NextRequest, _adminUser: IUser) {
   try {
     await connectDB();
 
@@ -75,15 +80,12 @@ async function handlePost(req: NextRequest, adminUser: IUser) {
     return NextResponse.json({ success: true, enrollment });
   } catch (error) {
     console.error('Error updating enrollment:', error);
-    return NextResponse.json(
-      { error: 'Failed to update enrollment' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update enrollment' }, { status: 500 });
   }
 }
 
-// PATCH /api/admin/enrollments - manually grant access to a user for a course
-async function handlePatch(req: NextRequest, adminUser: IUser) {
+// PATCH /api/admin/enrollments - manually grant access
+async function handlePatch(req: NextRequest, _adminUser: IUser) {
   try {
     await connectDB();
 
@@ -104,16 +106,10 @@ async function handlePatch(req: NextRequest, adminUser: IUser) {
       await Enrollment.create({ userId, courseId, status: 'ADMIN_GRANTED' });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Access granted successfully',
-    });
+    return NextResponse.json({ success: true, message: 'Access granted successfully' });
   } catch (error) {
     console.error('Error granting access:', error);
-    return NextResponse.json(
-      { error: 'Failed to grant access' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to grant access' }, { status: 500 });
   }
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import QRCode from 'react-qr-code';
 import { X, Loader2, CheckCircle, CreditCard, Smartphone, ArrowRight, Upload, ImageIcon, User, BookOpen } from 'lucide-react';
 import { toast } from './Toaster';
@@ -94,9 +95,9 @@ export default function PaymentModal({
         onSuccess();
         onClose();
       }, 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.dismiss(loadingId);
-      toast.error(err.message || 'Failed to submit. Please try again.');
+      toast.error((err instanceof Error ? err.message : null) || 'Failed to submit. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -170,7 +171,7 @@ export default function PaymentModal({
 
                 <div className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(59,130,246,0.3)' }}>
                   {useCustomQR ? (
-                    <img
+                    <Image
                       src="/qr-payment.JPG"
                       alt="Payment QR Code"
                       width={180}
@@ -269,6 +270,7 @@ export default function PaymentModal({
 
                 {proofPreview ? (
                   <div className="relative rounded-xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.4)' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={proofPreview} alt="Payment proof" className="w-full max-h-52 object-contain" style={{ background: 'rgba(0,0,0,0.3)' }} />
                     <button
                       onClick={() => { setProofFile(null); setProofPreview(null); }}

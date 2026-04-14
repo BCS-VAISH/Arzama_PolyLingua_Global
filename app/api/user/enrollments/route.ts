@@ -4,6 +4,13 @@ import Enrollment from '@/models/Enrollment';
 import { requireAuth } from '@/lib/auth';
 import { IUser } from '@/models/User';
 
+type LeanEnrollment = {
+  _id: { toString(): string };
+  courseId: string;
+  status: string;
+  createdAt: Date;
+};
+
 const courseNames: Record<string, string> = {
   english: 'English Mastery Course',
   french: 'French Mastery Course',
@@ -22,7 +29,7 @@ const coursePrices: Record<string, string> = {
   portuguese: '₹3,599',
 };
 
-async function handleGet(req: NextRequest, user: IUser) {
+async function handleGet(_req: NextRequest, user: IUser) {
   try {
     await connectDB();
 
@@ -30,7 +37,7 @@ async function handleGet(req: NextRequest, user: IUser) {
       .sort({ createdAt: -1 })
       .lean();
 
-    const formatted = (enrollments as any[]).map((e) => ({
+    const formatted = (enrollments as LeanEnrollment[]).map((e) => ({
       id: e._id.toString(),
       courseId: e.courseId,
       courseName: courseNames[e.courseId] || e.courseId,

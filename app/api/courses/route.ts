@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Course from '@/models/Course';
 
+type LeanCourse = {
+  _id: { toString(): string };
+  courseId: string;
+  title?: string;
+  name?: string;
+  description: string;
+  level: string;
+  price?: number;
+  discount?: number;
+};
+
 // Public endpoint — returns all courses or filtered by ?category=
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +24,7 @@ export async function GET(req: NextRequest) {
     const query = category ? { category } : {};
     const courses = await Course.find(query).lean();
 
-    const formatted = courses.map((c: any) => ({
+    const formatted = (courses as LeanCourse[]).map((c) => ({
       id: c._id.toString(),
       courseId: c.courseId,
       title: c.title || c.name,
@@ -21,8 +32,8 @@ export async function GET(req: NextRequest) {
       level: c.level,
       price: c.price || 0,
       discount: c.discount || 0,
-      finalPrice: c.discount > 0
-        ? Math.round(c.price * (1 - c.discount / 100))
+      finalPrice: (c.discount ?? 0) > 0
+        ? Math.round((c.price ?? 0) * (1 - (c.discount ?? 0) / 100))
         : (c.price || 0),
     }));
 

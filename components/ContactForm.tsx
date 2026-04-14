@@ -150,7 +150,7 @@ export default function ContactForm() {
             style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}
           >
             <CheckCircle className="w-4 h-4 flex-shrink-0" />
-            Message sent! We'll get back to you soon.
+            Message sent! We&apos;ll get back to you soon.
           </motion.div>
         )}
       </AnimatePresence>

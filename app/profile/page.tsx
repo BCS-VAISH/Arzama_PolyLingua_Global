@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import * as THREE from 'three';
 import {
-  Star, MessageSquare, LogOut, Loader2,
+  Star, MessageSquare, LogOut,
   BookOpen, PlayCircle, Clock, CheckCircle, XCircle,
   ArrowLeft, TrendingUp, Award, ChevronRight, Globe,
 } from 'lucide-react';
@@ -49,7 +49,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; email: string; name?: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [comments, setComments] = useState<CommentData[]>([]);
@@ -94,10 +94,12 @@ export default function ProfilePage() {
     return () => { window.removeEventListener('resize', onResize); renderer.dispose(); };
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { checkAuth(); }, []);
 
   useEffect(() => {
     if (user && !dataFetched[activeTab]) fetchTabData(activeTab);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab]);
 
   const checkAuth = async () => {

@@ -62,7 +62,7 @@ export default function ContactPage() {
             Contact Us
           </h1>
           <p className="text-blue-300 text-lg max-w-xl mx-auto">
-            Have a question, query, or need help choosing a course? We're here for you.
+            Have a question, query, or need help choosing a course? We&apos;re here for you.
           </p>
         </motion.div>
 
@@ -167,7 +167,7 @@ export default function ContactPage() {
                 style={{ borderColor: 'rgba(59,130,246,0.15)', background: 'rgba(59,130,246,0.06)' }}
               >
                 <h2 className="text-white font-bold text-xl">Send a Message</h2>
-                <p className="text-blue-400 text-sm mt-0.5">Fill in the form and we'll respond within 24 hours</p>
+                <p className="text-blue-400 text-sm mt-0.5">Fill in the form and we&apos;ll respond within 24 hours</p>
               </div>
 
               <div className="px-7 py-7">

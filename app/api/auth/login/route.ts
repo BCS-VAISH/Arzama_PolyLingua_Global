@@ -6,15 +6,16 @@ import { validateEmail } from '@/lib/validation';
 
 export async function POST(req: NextRequest) {
   try {
-    // Connect to database first
     try {
       await connectDB();
-    } catch (dbError: any) {
+    } catch (dbError: unknown) {
       console.error('Database connection error:', dbError);
       return NextResponse.json(
-        { 
+        {
           error: 'Database connection failed. Please check your MongoDB connection string in .env.local',
-          details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+          details: process.env.NODE_ENV === 'development'
+            ? (dbError instanceof Error ? dbError.message : String(dbError))
+            : undefined,
         },
         { status: 500 }
       );
@@ -22,7 +23,6 @@ export async function POST(req: NextRequest) {
 
     const { email, password } = await req.json();
 
-    // Validation
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
@@ -37,9 +37,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Find user and include password for comparison
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
@@ -47,7 +46,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify password is loaded
     if (!user.password) {
       console.error('Password not loaded for user:', user.email);
       return NextResponse.json(
@@ -56,7 +54,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Compare password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return NextResponse.json(
@@ -65,10 +62,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate token
     const token = generateToken(user);
 
-    // Return user data (without password)
     const userData = {
       id: user._id.toString(),
       email: user.email,
@@ -77,33 +72,28 @@ export async function POST(req: NextRequest) {
     };
 
     const response = NextResponse.json(
-      {
-        message: 'Login successful',
-        user: userData,
-        token,
-      },
+      { message: 'Login successful', user: userData, token },
       { status: 200 }
     );
 
-    // Set HTTP-only cookie
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return response;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error logging in:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to login',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+        details: process.env.NODE_ENV === 'development'
+          ? (error instanceof Error ? error.message : String(error))
+          : undefined,
       },
       { status: 500 }
     );
   }
 }
-

@@ -6,8 +6,13 @@ import Review from '@/models/Review';
 import Comment from '@/models/Comment';
 import Enrollment from '@/models/Enrollment';
 import { requireAdmin } from '@/lib/auth';
+import { IUser } from '@/models/User';
 
-async function handleGet(req: NextRequest, user: any) {
+type LeanReview = { rating: number };
+type LeanCourse = { courseId?: string; price?: number; discount?: number };
+type LeanEnrollment = { courseId: string };
+
+async function handleGet(_req: NextRequest, _user: IUser) {
   try {
     await connectDB();
 
@@ -31,20 +36,20 @@ async function handleGet(req: NextRequest, user: any) {
 
     const averageRating =
       reviews.length > 0
-        ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length
+        ? (reviews as LeanReview[]).reduce((sum, r) => sum + r.rating, 0) / reviews.length
         : 0;
 
-    // Build courseId → finalPrice map
     const priceMap: Record<string, number> = {};
-    (allCourses as any[]).forEach((c) => {
+    (allCourses as LeanCourse[]).forEach((c) => {
       if (c.courseId) {
         priceMap[c.courseId] =
-          c.discount > 0 ? Math.round(c.price * (1 - c.discount / 100)) : c.price || 0;
+          (c.discount ?? 0) > 0
+            ? Math.round((c.price ?? 0) * (1 - (c.discount ?? 0) / 100))
+            : c.price ?? 0;
       }
     });
 
-    // Sum revenue from all paid/granted enrollments
-    const totalRevenue = (paidEnrollments as any[]).reduce((sum, e) => {
+    const totalRevenue = (paidEnrollments as LeanEnrollment[]).reduce((sum, e) => {
       return sum + (priceMap[e.courseId] || 0);
     }, 0);
 

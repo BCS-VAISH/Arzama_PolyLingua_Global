@@ -4,6 +4,15 @@ import Review from '@/models/Review';
 import Course from '@/models/Course';
 import { requireAuth } from '@/lib/auth';
 import { sanitizeInput, validateComment, validateRating } from '@/lib/validation';
+import { IUser } from '@/models/User';
+
+type PopulatedReview = {
+  _id: { toString(): string };
+  rating: number;
+  comment: string;
+  userId?: { name?: string; email?: string; _id: { toString(): string } } | null;
+  createdAt: Date;
+};
 
 // GET /api/reviews?courseId=...
 async function handleGet(req: NextRequest) {
@@ -20,7 +29,6 @@ async function handleGet(req: NextRequest) {
       );
     }
 
-    // Ensure course exists or create it
     let course = await Course.findOne({ courseId });
     if (!course) {
       const courseName =
@@ -29,7 +37,7 @@ async function handleGet(req: NextRequest) {
           : courseId === 'french'
           ? 'French Language Journey'
           : 'Portuguese Mastery Course';
-      
+
       course = await Course.create({
         courseId,
         title: courseName,
@@ -40,21 +48,18 @@ async function handleGet(req: NextRequest) {
       });
     }
 
-    // Fetch all reviews for this course with user info
     const reviews = await Review.find({ courseId: course._id })
       .populate('userId', 'name email')
       .sort({ createdAt: -1 })
       .lean();
 
-    // Calculate average rating and total count
     const totalReviews = reviews.length;
     const averageRating =
       totalReviews > 0
-        ? reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / totalReviews
+        ? (reviews as PopulatedReview[]).reduce((sum, r) => sum + r.rating, 0) / totalReviews
         : 0;
 
-    // Format reviews for response
-    const formattedReviews = reviews.map((review: any) => ({
+    const formattedReviews = (reviews as PopulatedReview[]).map((review) => ({
       id: review._id.toString(),
       rating: review.rating,
       comment: review.comment,
@@ -78,13 +83,12 @@ async function handleGet(req: NextRequest) {
 }
 
 // POST /api/reviews
-async function handlePost(req: NextRequest, user: any) {
+async function handlePost(req: NextRequest, user: IUser) {
   try {
     await connectDB();
 
     const { courseId, rating, comment } = await req.json();
 
-    // Validation
     if (!courseId || !rating || !comment) {
       return NextResponse.json(
         { error: 'courseId, rating, and comment are required' },
@@ -107,7 +111,6 @@ async function handlePost(req: NextRequest, user: any) {
       );
     }
 
-    // Ensure course exists or create it
     let course = await Course.findOne({ courseId });
     if (!course) {
       const courseName =
@@ -116,7 +119,7 @@ async function handlePost(req: NextRequest, user: any) {
           : courseId === 'french'
           ? 'French Language Journey'
           : 'Portuguese Mastery Course';
-      
+
       course = await Course.create({
         courseId,
         title: courseName,
@@ -127,7 +130,6 @@ async function handlePost(req: NextRequest, user: any) {
       });
     }
 
-    // Check for duplicate review
     const existingReview = await Review.findOne({
       userId: user._id,
       courseId: course._id,
@@ -140,10 +142,8 @@ async function handlePost(req: NextRequest, user: any) {
       );
     }
 
-    // Sanitize comment
     const sanitizedComment = sanitizeInput(comment);
 
-    // Create review
     const review = await Review.create({
       userId: user._id,
       courseId: course._id,
@@ -151,30 +151,27 @@ async function handlePost(req: NextRequest, user: any) {
       comment: sanitizedComment,
     });
 
-    // Populate user info
     await review.populate('userId', 'name email');
+    const populated = review.userId as unknown as { name?: string } | null;
 
     return NextResponse.json(
       {
         id: review._id.toString(),
         rating: review.rating,
         comment: review.comment,
-        userName: review.userId?.name || `User ${user._id.toString().substring(0, 8)}`,
+        userName: populated?.name || `User ${user._id.toString().substring(0, 8)}`,
         createdAt: review.createdAt,
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating review:', error);
-    
-    // Handle duplicate key error
-    if (error.code === 11000) {
+    if ((error as { code?: number }).code === 11000) {
       return NextResponse.json(
         { error: 'You have already submitted a review for this course' },
         { status: 409 }
       );
     }
-
     return NextResponse.json(
       { error: 'Failed to create review' },
       { status: 500 }

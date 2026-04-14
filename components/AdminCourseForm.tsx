@@ -65,8 +65,8 @@ export default function AdminCourseForm({ course, onClose, onSuccess }: Props) {
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save course');
+    } catch (err: unknown) {
+      setError((err instanceof Error ? err.message : null) || 'Failed to save course');
     } finally {
       setLoading(false);
     }

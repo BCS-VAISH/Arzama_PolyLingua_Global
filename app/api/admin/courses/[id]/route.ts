@@ -3,9 +3,10 @@ import connectDB from '@/lib/mongodb';
 import Course from '@/models/Course';
 import { requireAdmin } from '@/lib/auth';
 import { sanitizeInput } from '@/lib/validation';
+import { IUser } from '@/models/User';
 
 // GET /api/admin/courses/[id] - Get single course
-async function handleGet(req: NextRequest, user: any) {
+async function handleGet(req: NextRequest, _user: IUser) {
   try {
     await connectDB();
 
@@ -13,19 +14,13 @@ async function handleGet(req: NextRequest, user: any) {
     const courseId = url.pathname.split('/').pop();
 
     if (!courseId) {
-      return NextResponse.json(
-        { error: 'Course ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Course ID is required' }, { status: 400 });
     }
 
     const course = await Course.findById(courseId).lean();
 
     if (!course) {
-      return NextResponse.json(
-        { error: 'Course not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -45,15 +40,12 @@ async function handleGet(req: NextRequest, user: any) {
     });
   } catch (error) {
     console.error('Error fetching course:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch course' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch course' }, { status: 500 });
   }
 }
 
-// PUT /api/admin/courses/[id] - Update course (accepts MongoDB _id or courseId slug)
-async function handlePut(req: NextRequest, user: any) {
+// PUT /api/admin/courses/[id] - Update course
+async function handlePut(req: NextRequest, _user: IUser) {
   try {
     await connectDB();
 
@@ -61,31 +53,19 @@ async function handlePut(req: NextRequest, user: any) {
     const rawId = url.pathname.split('/').pop();
 
     if (!rawId) {
-      return NextResponse.json(
-        { error: 'Course ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Course ID is required' }, { status: 400 });
     }
 
     const {
-      title,
-      description,
-      price,
-      discount,
-      category,
-      thumbnail,
-      videoLink,
-      duration,
-      level,
+      title, description, price, discount, category,
+      thumbnail, videoLink, duration, level,
     } = await req.json();
 
-    // Determine if rawId is a MongoDB ObjectId (24 hex chars) or a courseId slug
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
     let course = isObjectId
       ? await Course.findById(rawId)
       : await Course.findOne({ courseId: rawId });
 
-    // If not found by slug, create a new course record (upsert)
     if (!course && !isObjectId) {
       const COURSE_NAMES: Record<string, string> = {
         english: 'English Mastery',
@@ -113,18 +93,11 @@ async function handlePut(req: NextRequest, user: any) {
     }
 
     if (!course) {
-      return NextResponse.json(
-        { error: 'Course not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
-    // Validation
     if (price !== undefined && price < 0) {
-      return NextResponse.json(
-        { error: 'Price cannot be negative' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Price cannot be negative' }, { status: 400 });
     }
 
     if (discount !== undefined && (discount < 0 || discount > 100)) {
@@ -141,23 +114,14 @@ async function handlePut(req: NextRequest, user: any) {
       );
     }
 
-    // Update fields
     if (title) {
       course.title = sanitizeInput(title);
-      // Update courseId if title changed
       const newCourseId = course.title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
-      
-      // Check if new courseId conflicts with another course
-      const existingCourse = await Course.findOne({
-        courseId: newCourseId,
-        _id: { $ne: course._id }
-      });
-      if (!existingCourse) {
-        course.courseId = newCourseId;
-      }
+      const existingCourse = await Course.findOne({ courseId: newCourseId, _id: { $ne: course._id } });
+      if (!existingCourse) course.courseId = newCourseId;
     }
 
     if (description) course.description = sanitizeInput(description);
@@ -189,25 +153,20 @@ async function handlePut(req: NextRequest, user: any) {
       createdAt: course.createdAt,
       updatedAt: course.updatedAt,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating course:', error);
-    
-    if (error.code === 11000) {
+    if ((error as { code?: number }).code === 11000) {
       return NextResponse.json(
         { error: 'A course with this identifier already exists' },
         { status: 409 }
       );
     }
-
-    return NextResponse.json(
-      { error: 'Failed to update course' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update course' }, { status: 500 });
   }
 }
 
 // DELETE /api/admin/courses/[id] - Delete course
-async function handleDelete(req: NextRequest, user: any) {
+async function handleDelete(req: NextRequest, _user: IUser) {
   try {
     await connectDB();
 
@@ -215,37 +174,22 @@ async function handleDelete(req: NextRequest, user: any) {
     const courseId = url.pathname.split('/').pop();
 
     if (!courseId) {
-      return NextResponse.json(
-        { error: 'Course ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Course ID is required' }, { status: 400 });
     }
 
     const course = await Course.findByIdAndDelete(courseId);
 
     if (!course) {
-      return NextResponse.json(
-        { error: 'Course not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
-    return NextResponse.json(
-      { message: 'Course deleted successfully' },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: 'Course deleted successfully' }, { status: 200 });
   } catch (error) {
     console.error('Error deleting course:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete course' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete course' }, { status: 500 });
   }
 }
 
 export const GET = requireAdmin(handleGet);
 export const PUT = requireAdmin(handlePut);
 export const DELETE = requireAdmin(handleDelete);
-
-
-

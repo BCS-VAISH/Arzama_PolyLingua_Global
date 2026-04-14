@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X, User, LogOut, LayoutDashboard } from "lucide-react";
 
 export default function Header() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id?: string; email?: string; name?: string; role?: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,9 +79,11 @@ export default function Header() {
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <img
+            <Image
               src="/pic.png"
               alt="ARZAMA"
+              width={44}
+              height={44}
               className="w-9 h-9 sm:w-11 sm:h-11 rounded-full"
               style={{ boxShadow: '0 0 12px rgba(99,179,237,0.5)' }}
             />

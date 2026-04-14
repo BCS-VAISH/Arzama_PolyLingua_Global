@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import { requireAdmin } from '@/lib/auth';
+import { IUser } from '@/models/User';
+
+type LeanUser = {
+  _id: { toString(): string };
+  email: string;
+  name?: string;
+  role: string;
+  createdAt: Date;
+};
 
 // GET /api/admin/users
-async function handleGet(req: NextRequest, user: any) {
+async function handleGet(_req: NextRequest, _user: IUser) {
   try {
     await connectDB();
 
@@ -13,7 +22,7 @@ async function handleGet(req: NextRequest, user: any) {
       .sort({ createdAt: -1 })
       .lean();
 
-    const formattedUsers = users.map((u: any) => ({
+    const formattedUsers = (users as LeanUser[]).map((u) => ({
       id: u._id.toString(),
       email: u.email,
       name: u.name,
@@ -34,4 +43,3 @@ async function handleGet(req: NextRequest, user: any) {
 }
 
 export const GET = requireAdmin(handleGet);
-

@@ -23,7 +23,7 @@ export default function About() {
           viewport={{ once: true }}
           className="text-4xl font-extrabold mb-6 text-blue-700"
         >
-          About ARZAMA's PolyLingua Global
+          About ARZAMA&apos;s PolyLingua Global
         </motion.h2>
 
         <motion.p

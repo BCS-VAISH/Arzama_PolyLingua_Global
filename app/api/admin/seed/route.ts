@@ -95,6 +95,8 @@ const ALL_COURSES = [
   },
 ];
 
+type SeedCourse = { courseId: string; title: string; price: number };
+
 // POST /api/admin/seed — upserts all courses into MongoDB
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser(req);
@@ -102,20 +104,20 @@ export async function POST(req: NextRequest) {
   if (user.role !== 'admin') return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
-  const category = searchParams.get('category'); // optional filter e.g. ?category=french
+  const category = searchParams.get('category');
 
   await connectDB();
 
   const toSeed = category ? ALL_COURSES.filter(c => c.category === category) : ALL_COURSES;
 
-  const results = [];
+  const results: SeedCourse[] = [];
   for (const course of toSeed) {
     const doc = await Course.findOneAndUpdate(
       { courseId: course.courseId },
       { $set: course },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-    results.push({ courseId: doc.courseId, title: doc.title, price: doc.price });
+    results.push({ courseId: doc?.courseId ?? '', title: doc?.title ?? doc?.courseId ?? '', price: doc?.price });
   }
 
   return NextResponse.json({
@@ -138,7 +140,7 @@ export async function GET(req: NextRequest) {
     courseId: c.courseId,
     title: c.title,
     category: c.category,
-    inDB: existing.some((e: any) => e.courseId === c.courseId),
+    inDB: (existing as { courseId?: string }[]).some((e) => e.courseId === c.courseId),
   }));
 
   return NextResponse.json({ seeded, totalInDB: existing.length });

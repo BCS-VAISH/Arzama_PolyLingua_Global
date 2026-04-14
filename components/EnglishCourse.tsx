@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import * as THREE from 'three';
 import { CheckCircle, Clock, Users, Globe, Infinity, Lock, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -324,7 +325,7 @@ export default function EnglishCourse() {
           <div className="rounded-2xl mb-14 p-6" style={{ background: 'rgba(15,27,60,0.8)', border: '1px solid rgba(59,130,246,0.2)' }}>
             <h3 className="text-xl font-bold text-blue-200 mb-4">Meet Your Instructor</h3>
             <div className="flex items-center gap-4">
-              <img src="/Founder.jpg" className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" style={{ border: '2px solid rgba(59,130,246,0.5)' }} alt="Instructor" />
+              <Image src="/Founder.jpg" width={80} height={80} className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" style={{ border: '2px solid rgba(59,130,246,0.5)' }} alt="Instructor" />
               <div>
                 <div className="text-lg font-bold text-white">Arao Zau Macaia</div>
                 <div className="text-blue-300 text-sm">Multilingual Language Instructor · Founder of ARZAMA&apos;s PolyLingua Global</div>

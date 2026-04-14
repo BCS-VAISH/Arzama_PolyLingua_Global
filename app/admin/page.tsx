@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Users, MessageSquare, Star, Trash2, LogOut, Loader2, BookOpen,
@@ -13,7 +14,7 @@ import { toast } from '@/components/Toaster';
 type User = { id: string; email: string; name?: string; role: string; createdAt: string; };
 type Review = { id: string; rating: number; comment: string; userName: string; userEmail: string; courseId: string; courseName: string; createdAt: string; };
 type Comment = { id: string; content: string; userName: string; userEmail: string; courseId: string; courseName: string; createdAt: string; };
-type Course = { id: string; title: string; description: string; price: number; discount: number; category: string; thumbnail?: string; level: string; createdAt: string; };
+type Course = { id: string; courseId?: string; title: string; description: string; price: number; discount: number; category: string; thumbnail?: string; level: string; createdAt: string; };
 type Enrollment = { id: string; userId: string; userName: string; userEmail: string; courseId: string; courseName: string; status: string; createdAt: string; };
 type Stats = { totalUsers: number; totalCourses: number; totalReviews: number; totalComments: number; averageRating: number; totalRevenue: number; };
 type PriceModal = { courseId: string; courseName: string; price: number; discount: number; };
@@ -39,7 +40,7 @@ type TabKey = typeof TAB_CONFIG[number]['key'];
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; email: string; name?: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [users, setUsers] = useState<User[]>([]);
@@ -67,12 +68,14 @@ export default function AdminDashboard() {
   const [courseFormModal, setCourseFormModal] = useState<CourseForm | null>(null);
   const [savingCourse, setSavingCourse] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { checkAuth(); }, []);
   useEffect(() => {
     if (user && user.role === 'admin') {
       if (activeTab === 'dashboard') fetchStats();
       else fetchData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab]);
 
   const checkAuth = async () => {
@@ -102,8 +105,8 @@ export default function AdminDashboard() {
     try {
       if (activeTab === 'courses') {
         const r = await fetch('/api/courses'); const d = await r.json();
-        const dbCourses: any[] = d.courses || [];
-        setCourses(dbCourses.map((c: any) => ({
+        const dbCourses = (d.courses || []) as Course[];
+        setCourses(dbCourses.map((c) => ({
           id: c.id,
           courseId: c.courseId,
           title: c.title,
@@ -137,7 +140,7 @@ export default function AdminDashboard() {
       if (!r.ok) throw new Error(d.error);
       setUsers(users.filter(u => u.id !== userId));
       toast.success('User deleted successfully');
-    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Failed to delete user'); }
+    } catch (err: unknown) { toast.dismiss(id); toast.error((err instanceof Error ? err.message : null) || 'Failed to delete user'); }
   };
 
   const handleGrantAccess = async () => {
@@ -154,7 +157,7 @@ export default function AdminDashboard() {
       toast.success(`Access granted to ${grantModal.userName} for ${COURSE_NAMES[grantCourseId]}`);
       setGrantModal(null);
       if (activeTab === 'enrollments') fetchData();
-    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Failed to grant access'); }
+    } catch (err: unknown) { toast.dismiss(id); toast.error((err instanceof Error ? err.message : null) || 'Failed to grant access'); }
     finally { setGranting(false); }
   };
 
@@ -171,7 +174,7 @@ export default function AdminDashboard() {
       toast.success(`Enrollment ${status === 'PAID' ? 'approved' : status === 'REJECTED' ? 'rejected' : 'updated'}`);
       // Refresh stats revenue if on dashboard
       if (activeTab === 'dashboard') fetchStats();
-    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Failed to update enrollment'); }
+    } catch (err: unknown) { toast.dismiss(id); toast.error((err instanceof Error ? err.message : null) || 'Failed to update enrollment'); }
   };
 
   const handleDeleteCourse = async (courseId: string, courseTitle: string) => {
@@ -187,7 +190,7 @@ export default function AdminDashboard() {
       if (!r.ok) throw new Error(d.error);
       setCourses(prev => prev.filter(c => c.id !== courseId));
       toast.success(`"${courseTitle}" deleted`);
-    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Failed to delete course'); }
+    } catch (err: unknown) { toast.dismiss(id); toast.error((err instanceof Error ? err.message : null) || 'Failed to delete course'); }
   };
 
   const handleSaveCourse = async () => {
@@ -212,7 +215,7 @@ export default function AdminDashboard() {
       toast.success(id ? 'Course updated successfully' : 'Course created successfully');
       setCourseFormModal(null);
       fetchData();
-    } catch (err: any) { toast.dismiss(loadingId); toast.error(err.message || 'Failed to save course'); }
+    } catch (err: unknown) { toast.dismiss(loadingId); toast.error((err instanceof Error ? err.message : null) || 'Failed to save course'); }
     finally { setSavingCourse(false); }
   };
 
@@ -229,7 +232,7 @@ export default function AdminDashboard() {
       if (!r.ok) throw new Error(d.error);
       toast.success(d.message);
       fetchData();
-    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Seeding failed'); }
+    } catch (err: unknown) { toast.dismiss(id); toast.error((err instanceof Error ? err.message : null) || 'Seeding failed'); }
     finally { setSeeding(null); }
   };
 
@@ -257,7 +260,7 @@ export default function AdminDashboard() {
       setCourses(prev => prev.map(c => c.id === priceModal.courseId ? { ...c, price, discount } : c));
       toast.success(`Price updated for ${priceModal.courseName}`);
       setPriceModal(null);
-    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Failed to update price'); }
+    } catch (err: unknown) { toast.dismiss(id); toast.error((err instanceof Error ? err.message : null) || 'Failed to update price'); }
     finally { setSavingPrice(false); }
   };
 
@@ -270,7 +273,7 @@ export default function AdminDashboard() {
       toast.dismiss(id);
       setReviews(reviews.filter(r => r.id !== reviewId));
       toast.success('Review deleted');
-    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Failed to delete review'); }
+    } catch (err: unknown) { toast.dismiss(id); toast.error((err instanceof Error ? err.message : null) || 'Failed to delete review'); }
   };
 
   const handleDeleteComment = async (commentId: string) => {
@@ -282,7 +285,7 @@ export default function AdminDashboard() {
       toast.dismiss(id);
       setComments(comments.filter(c => c.id !== commentId));
       toast.success('Comment deleted');
-    } catch (err: any) { toast.dismiss(id); toast.error(err.message || 'Failed to delete comment'); }
+    } catch (err: unknown) { toast.dismiss(id); toast.error((err instanceof Error ? err.message : null) || 'Failed to delete comment'); }
   };
 
   const handleLogout = async () => {
@@ -480,7 +483,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
                       <div>
                         <h2 className="text-lg font-bold text-white">Course Pricing</h2>
-                        <p className="text-white/40 text-xs mt-0.5">Click "Edit Price" to update a course's price. Changes reflect immediately on course pages.</p>
+                        <p className="text-white/40 text-xs mt-0.5">Click &quot;Edit Price&quot; to update a course&apos;s price. Changes reflect immediately on course pages.</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -519,7 +522,7 @@ export default function AdminDashboard() {
                             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                             {course.thumbnail && (
                               <div className="relative h-36 overflow-hidden">
-                                <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                                <Image src={course.thumbnail} alt={course.title} fill className="object-cover" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                               </div>
                             )}

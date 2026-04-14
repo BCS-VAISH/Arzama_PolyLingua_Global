@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Comment from '@/models/Comment';
 import { requireAdmin } from '@/lib/auth';
+import { IUser } from '@/models/User';
 
 // DELETE /api/comments/[id]
-async function handleDelete(req: NextRequest, user: any) {
+async function handleDelete(req: NextRequest, _user: IUser) {
   try {
     await connectDB();
 
@@ -47,14 +48,12 @@ async function handleDelete(req: NextRequest, user: any) {
 export async function DELETE(req: NextRequest) {
   const url = new URL(req.url);
   const commentId = url.pathname.split('/').pop();
-  
-  // Create a modified request with the comment ID
+
   const modifiedReq = new NextRequest(req.url, {
     method: req.method,
     headers: req.headers,
     body: JSON.stringify({ id: commentId }),
   });
-  
+
   return requireAdmin(handleDelete)(modifiedReq);
 }
-
