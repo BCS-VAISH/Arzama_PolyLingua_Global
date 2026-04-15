@@ -82,7 +82,6 @@ const CourseSchema: Schema = new Schema(
   }
 );
 
-CourseSchema.index({ courseId: 1 });
 CourseSchema.index({ category: 1 });
 CourseSchema.index({ level: 1 });
 CourseSchema.index({ createdAt: -1 });
