@@ -22,17 +22,28 @@ export default function Header() {
   const checkAuth = async () => {
     try {
       const savedUser = localStorage.getItem('userData');
+      const authToken = localStorage.getItem('authToken');
+
       if (savedUser) {
         setUser(JSON.parse(savedUser));
-      } else {
-        const response = await fetch('/api/auth/me');
+      } else if (authToken) {
+        // Only hit the API when we actually have a token — avoids 401 noise for guests
+        const response = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${authToken}` },
+          credentials: 'include',
+        });
         if (response.ok) {
           const data = await response.json();
           setUser(data.user);
           localStorage.setItem('userData', JSON.stringify(data.user));
         } else {
+          // Token invalid/expired — clean up
+          localStorage.removeItem('authToken');
           setUser(null);
         }
+      } else {
+        // No token at all — definitely not logged in, no API call needed
+        setUser(null);
       }
     } catch {
       setUser(null);

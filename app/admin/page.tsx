@@ -58,6 +58,7 @@ export default function AdminDashboard() {
   const [grantCourseId, setGrantCourseId] = useState('english');
   const [granting, setGranting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [seeding, setSeeding] = useState<string | null>(null);
 
   // Price edit modal
@@ -340,11 +341,11 @@ export default function AdminDashboard() {
         <div className="dashboard-orb orb-3" /><div className="dashboard-orb orb-4" />
       </div>
 
-      {/* SIDEBAR */}
+      {/* ── DESKTOP SIDEBAR (md+) ── */}
       <motion.aside
         animate={{ width: sidebarOpen ? 240 : 72 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="relative z-10 flex-shrink-0 flex flex-col h-screen sticky top-0"
+        className="hidden md:flex relative z-10 flex-shrink-0 flex-col h-screen sticky top-0"
         style={{ background: 'rgba(10,11,30,0.85)', backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
       >
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/5">
@@ -409,10 +410,89 @@ export default function AdminDashboard() {
         </button>
       </motion.aside>
 
+      {/* ── MOBILE DRAWER (< md) ── */}
+      {mobileNavOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileNavOpen(false)} />
+          {/* Drawer panel */}
+          <div className="relative w-72 max-w-[85vw] flex flex-col h-full"
+            style={{ background: 'rgba(10,11,30,0.98)', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+            {/* Drawer header */}
+            <div className="flex items-center justify-between px-4 py-4 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center" style={{ boxShadow: '0 0 16px rgba(139,92,246,0.5)' }}>
+                  <Activity className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">PolyLingua</p>
+                  <p className="text-white/40 text-xs">Admin Panel</p>
+                </div>
+              </div>
+              <button onClick={() => setMobileNavOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+                <X className="w-5 h-5 text-white/50" />
+              </button>
+            </div>
+            {/* Drawer nav */}
+            <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
+              {TAB_CONFIG.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.key;
+                return (
+                  <button key={tab.key} onClick={() => { setActiveTab(tab.key); setMobileNavOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 ${isActive ? `${tab.bg} ${tab.border} border` : 'hover:bg-white/5 border border-transparent'}`}
+                    style={isActive ? { boxShadow: `0 0 16px ${tab.glow}` } : {}}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isActive ? `bg-gradient-to-br ${tab.gradient}` : 'bg-white/5'}`}
+                      style={isActive ? { boxShadow: `0 0 10px ${tab.glow}` } : {}}>
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-white/50'}`} />
+                    </div>
+                    <span className={`text-sm font-medium ${isActive ? tab.text : 'text-white/60'}`}>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+            {/* Drawer footer */}
+            <div className="p-2 border-t border-white/5 space-y-1">
+              <button onClick={() => { router.push('/'); setMobileNavOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 border border-transparent transition-all">
+                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                  <Home className="w-4 h-4 text-white/50" />
+                </div>
+                <span className="text-sm text-white/60">Home</span>
+              </button>
+              <button onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-500/10 border border-transparent hover:border-red-500/30 transition-all">
+                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                  <LogOut className="w-4 h-4 text-white/50" />
+                </div>
+                <span className="text-sm text-white/60">Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MAIN CONTENT */}
       <div className="flex-1 relative z-10 min-h-screen overflow-auto">
-        {/* Topbar */}
-        <div className="sticky top-0 z-20 flex items-center justify-between px-6 py-4"
+        {/* ── Mobile top bar ── */}
+        <div className="md:hidden sticky top-0 z-20 flex items-center gap-3 px-4 py-3"
+          style={{ background: 'rgba(10,11,30,0.95)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <button onClick={() => setMobileNavOpen(true)} className="p-2 rounded-xl hover:bg-white/10 transition-colors flex-shrink-0"
+            style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="space-y-1.5">
+              <span className="block w-5 h-0.5 bg-white/70 rounded" />
+              <span className="block w-4 h-0.5 bg-white/70 rounded" />
+              <span className="block w-5 h-0.5 bg-white/70 rounded" />
+            </div>
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className={`text-base font-bold bg-gradient-to-r ${activeTabConfig.gradient} bg-clip-text text-transparent truncate`}>{activeTabConfig.label}</h1>
+          </div>
+          <div className="px-2 py-1 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/30 flex-shrink-0">Admin</div>
+        </div>
+
+        {/* ── Desktop top bar ── */}
+        <div className="hidden md:flex sticky top-0 z-20 items-center justify-between px-6 py-4"
           style={{ background: 'rgba(10,11,30,0.8)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <div>
             <h1 className={`text-xl font-bold bg-gradient-to-r ${activeTabConfig.gradient} bg-clip-text text-transparent`}>{activeTabConfig.label}</h1>
@@ -421,9 +501,9 @@ export default function AdminDashboard() {
           <div className="px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/30">Admin</div>
         </div>
 
-        <div className="p-6">
+        <div className="p-3 md:p-6">
           {error && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</motion.div>
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 md:mb-6 p-3 md:p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</motion.div>
           )}
 
           {loadingData ? (
@@ -485,9 +565,9 @@ export default function AdminDashboard() {
                 {/* ── COURSES — Price edit only ── */}
                 {activeTab === 'courses' && (
                   <div>
-                    <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6 gap-3">
                       <div>
-                        <h2 className="text-lg font-bold text-white">Course Pricing</h2>
+                        <h2 className="text-base md:text-lg font-bold text-white">Course Pricing</h2>
                         <p className="text-white/40 text-xs mt-0.5">Click &quot;Edit Price&quot; to update a course&apos;s price. Changes reflect immediately on course pages.</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -601,47 +681,81 @@ export default function AdminDashboard() {
 
                 {/* ── USERS ── */}
                 {activeTab === 'users' && (
-                  <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                    <div className="px-5 py-4 border-b border-white/5">
+                  <div>
+                    <div className="px-1 py-2 mb-3 md:mb-4">
                       <h2 className="text-white font-semibold">All Users <span className="text-white/40 text-sm font-normal ml-2">{users.length} total</span></h2>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-white/5">
-                            {['Name','Email','Role','Joined','Actions'].map(h => (
-                              <th key={h} className="text-left px-5 py-3 text-white/40 text-xs font-semibold uppercase tracking-wider">{h}</th>
+
+                    {/* Mobile card view */}
+                    <div className="md:hidden space-y-3">
+                      {users.length === 0 && <div className="text-center py-12 text-white/30 text-sm">No users yet.</div>}
+                      {users.map((u, i) => (
+                        <motion.div key={u.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                          className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-white text-sm truncate">{u.name || '—'}</p>
+                              <p className="text-white/50 text-xs truncate">{u.email}</p>
+                            </div>
+                            <span className={`flex-shrink-0 px-2 py-1 rounded-lg text-xs font-semibold ${u.role === 'admin' ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}`}>{u.role}</span>
+                          </div>
+                          <p className="text-white/30 text-xs mb-3">Joined {new Date(u.createdAt).toLocaleDateString()}</p>
+                          {u.role !== 'admin' && (
+                            <div className="flex gap-2">
+                              <button onClick={() => { setGrantModal({ userId: u.id, userName: u.name || u.email }); setGrantCourseId('english'); }}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all">
+                                <ShieldCheck className="w-3.5 h-3.5" />Grant Access
+                              </button>
+                              <button onClick={() => handleDeleteUser(u.id, u.name || u.email)}
+                                className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all flex items-center gap-1.5">
+                                <Trash2 className="w-3.5 h-3.5" />Delete
+                              </button>
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    {/* Desktop table view */}
+                    <div className="hidden md:block rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-white/5">
+                              {['Name','Email','Role','Joined','Actions'].map(h => (
+                                <th key={h} className="text-left px-5 py-3 text-white/40 text-xs font-semibold uppercase tracking-wider">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {users.map((u, i) => (
+                              <motion.tr key={u.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+                                className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                                <td className="px-5 py-3 font-medium text-white">{u.name || '—'}</td>
+                                <td className="px-5 py-3 text-white/50">{u.email}</td>
+                                <td className="px-5 py-3">
+                                  <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${u.role === 'admin' ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}`}>{u.role}</span>
+                                </td>
+                                <td className="px-5 py-3 text-white/40">{new Date(u.createdAt).toLocaleDateString()}</td>
+                                <td className="px-5 py-3">
+                                  {u.role !== 'admin' && (
+                                    <div className="flex items-center gap-2">
+                                      <button onClick={() => { setGrantModal({ userId: u.id, userName: u.name || u.email }); setGrantCourseId('english'); }}
+                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all">
+                                        <ShieldCheck className="w-3 h-3" />Grant
+                                      </button>
+                                      <button onClick={() => handleDeleteUser(u.id, u.name || u.email)}
+                                        className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </motion.tr>
                             ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {users.map((u, i) => (
-                            <motion.tr key={u.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                              className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                              <td className="px-5 py-3 font-medium text-white">{u.name || '—'}</td>
-                              <td className="px-5 py-3 text-white/50">{u.email}</td>
-                              <td className="px-5 py-3">
-                                <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${u.role === 'admin' ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}`}>{u.role}</span>
-                              </td>
-                              <td className="px-5 py-3 text-white/40">{new Date(u.createdAt).toLocaleDateString()}</td>
-                              <td className="px-5 py-3">
-                                {u.role !== 'admin' && (
-                                  <div className="flex items-center gap-2">
-                                    <button onClick={() => { setGrantModal({ userId: u.id, userName: u.name || u.email }); setGrantCourseId('english'); }}
-                                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all">
-                                      <ShieldCheck className="w-3 h-3" />Grant
-                                    </button>
-                                    <button onClick={() => handleDeleteUser(u.id, u.name || u.email)}
-                                      className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all">
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                )}
-                              </td>
-                            </motion.tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -649,17 +763,64 @@ export default function AdminDashboard() {
                 {/* ── ENROLLMENTS ── */}
                 {activeTab === 'enrollments' && (
                   <div>
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                      <h2 className="text-white font-semibold text-lg">Enrollment Management</h2>
+                    <div className="flex flex-col gap-2 mb-4">
+                      <h2 className="text-white font-semibold text-base md:text-lg">Enrollment Management</h2>
                       <div className="flex flex-wrap gap-2">
                         {[
-                          { label: 'PENDING = awaiting approval', style: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+                          { label: 'PENDING = awaiting', style: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
                           { label: 'PAID = approved', style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
                           { label: 'ADMIN_GRANTED = manual', style: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
                         ].map(b => <span key={b.label} className={`px-2 py-1 rounded-lg text-xs border ${b.style}`}>{b.label}</span>)}
                       </div>
                     </div>
-                    <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+
+                    {/* Mobile card view */}
+                    <div className="md:hidden space-y-3">
+                      {enrollments.length === 0 && <div className="text-center py-12 text-white/30 text-sm">No enrollments yet.</div>}
+                      {enrollments.map((e, i) => (
+                        <motion.div key={e.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                          className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-white text-sm truncate">{e.userName}</p>
+                              <p className="text-white/40 text-xs truncate">{e.userEmail}</p>
+                            </div>
+                            <span className={`flex-shrink-0 px-2 py-1 rounded-lg text-xs font-semibold ${statusBadge(e.status)}`}>{e.status}</span>
+                          </div>
+                          <p className="text-white/60 text-xs mb-1">{e.courseName}</p>
+                          <p className="text-white/30 text-xs mb-3">{new Date(e.createdAt).toLocaleDateString()}</p>
+                          <div className="flex gap-2 flex-wrap">
+                            {e.status === 'PENDING' && (
+                              <>
+                                <button onClick={() => handleUpdateEnrollment(e.id, 'PAID')}
+                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all">
+                                  <CheckCircle className="w-3.5 h-3.5" />Approve
+                                </button>
+                                <button onClick={() => handleUpdateEnrollment(e.id, 'REJECTED')}
+                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all">
+                                  <XCircle className="w-3.5 h-3.5" />Reject
+                                </button>
+                              </>
+                            )}
+                            {(e.status === 'PAID' || e.status === 'ADMIN_GRANTED') && (
+                              <button onClick={() => handleUpdateEnrollment(e.id, 'REJECTED')}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all">
+                                <XCircle className="w-3.5 h-3.5" />Revoke Access
+                              </button>
+                            )}
+                            {e.status === 'REJECTED' && (
+                              <button onClick={() => handleUpdateEnrollment(e.id, 'ADMIN_GRANTED')}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition-all">
+                                <ShieldCheck className="w-3.5 h-3.5" />Grant Access
+                              </button>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    {/* Desktop table view */}
+                    <div className="hidden md:block rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
