@@ -25,11 +25,17 @@ export function validateEmail(email: string): boolean {
 }
 
 export function validatePassword(password: string): { valid: boolean; error?: string } {
-  if (password.length < 6) {
-    return { valid: false, error: 'Password must be at least 6 characters' };
+  if (password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters' };
   }
   if (password.length > 100) {
     return { valid: false, error: 'Password must be less than 100 characters' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one uppercase letter' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one number' };
   }
   return { valid: true };
 }

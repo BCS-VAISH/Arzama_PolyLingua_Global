@@ -91,7 +91,7 @@ function LoginContent() {
             {/* Tab toggle */}
             <div className="p-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
               <div className="flex rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                <div className="flex-1 py-3 text-center text-sm font-bold text-white rounded-xl" style={{ background: 'linear-gradient(135deg,#e05a1a,#c2440e)' }}>
+                <div className="flex-1 py-3 text-center text-sm font-bold text-white rounded-xl" style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', boxShadow: '0 0 16px rgba(37,99,235,0.4)' }}>
                   Login
                 </div>
                 <Link href={`/register?redirect=${redirect}`} className="flex-1 py-3 text-center text-sm font-semibold text-white/50 hover:text-white/80 transition-colors">
@@ -130,13 +130,13 @@ function LoginContent() {
               </div>
 
               {/* Important note */}
-              <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: 'rgba(120,60,0,0.35)', border: '1px solid rgba(234,179,8,0.3)' }}>
-                <Info className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-yellow-400 text-sm font-semibold mb-1">Important Note:</p>
+                  <p className="text-blue-300 text-sm font-semibold mb-1">Important Note:</p>
                   <ul className="space-y-1">
-                    <li className="text-yellow-300 text-xs flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-yellow-400 flex-shrink-0" />Email should always be in lowercase</li>
-                    <li className="text-yellow-300 text-xs flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-yellow-400 flex-shrink-0" />Password is case sensitive</li>
+                    <li className="text-blue-200/80 text-xs flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-blue-400 flex-shrink-0" />Email should always be in lowercase</li>
+                    <li className="text-blue-200/80 text-xs flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-blue-400 flex-shrink-0" />Password is case sensitive</li>
                   </ul>
                 </div>
               </div>
@@ -176,7 +176,7 @@ function LoginContent() {
                   type="submit"
                   disabled={loading}
                   className="w-full py-3 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.15)' }}
+                  style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', boxShadow: loading ? 'none' : '0 0 24px rgba(37,99,235,0.45)' }}
                 >
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Login'}
                 </button>

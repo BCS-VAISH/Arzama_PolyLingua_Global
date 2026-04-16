@@ -8,6 +8,7 @@ import {
   Star, MessageSquare, LogOut,
   BookOpen, PlayCircle, Clock, CheckCircle, XCircle,
   ArrowLeft, TrendingUp, Award, ChevronRight, Globe,
+  Send, User, Mail, X, Loader2, AlertCircle,
 } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 
@@ -57,6 +58,14 @@ export default function ProfilePage() {
   const [loadingData, setLoadingData] = useState(false);
   const [activeTab, setActiveTab] = useState<'courses' | 'reviews' | 'comments'>('courses');
   const [dataFetched, setDataFetched] = useState<Record<string, boolean>>({});
+
+  // Query modal state
+  const [queryOpen, setQueryOpen] = useState(false);
+  const [queryName, setQueryName] = useState('');
+  const [queryEmail, setQueryEmail] = useState('');
+  const [queryMessage, setQueryMessage] = useState('');
+  const [queryError, setQueryError] = useState('');
+  const [querySending, setQuerySending] = useState(false);
 
   // 3D background
   useEffect(() => {
@@ -146,6 +155,34 @@ export default function ProfilePage() {
       toast.success('Logged out successfully');
       router.push('/');
     } catch { toast.error('Logout failed'); }
+  };
+
+  const handleQuerySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setQueryError('');
+    if (!queryName.trim() || !queryEmail.trim() || !queryMessage.trim()) {
+      setQueryError('All fields are required.');
+      return;
+    }
+    setQuerySending(true);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullname: queryName.trim(), email: queryEmail.trim(), message: queryMessage.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+      toast.success('Query sent! We\'ll get back to you soon.');
+      setQueryOpen(false);
+      setQueryName('');
+      setQueryEmail('');
+      setQueryMessage('');
+    } catch (err: unknown) {
+      setQueryError((err instanceof Error ? err.message : null) || 'Failed to send. Please try again.');
+    } finally {
+      setQuerySending(false);
+    }
   };
 
   const isActive = (status: string) => status === 'PAID' || status === 'ADMIN_GRANTED';
@@ -247,6 +284,23 @@ export default function ProfilePage() {
               ))}
             </div>
           </div>
+
+          {/* Send a Query card button */}
+          <button
+            onClick={() => { setQueryOpen(true); setQueryName(user.name || ''); setQueryEmail(user.email || ''); }}
+            className="w-full rounded-2xl p-5 mb-6 flex items-center gap-4 text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
+            style={{ background: 'linear-gradient(135deg, rgba(37,99,235,0.18), rgba(124,58,237,0.18))', border: '1px solid rgba(99,102,241,0.35)', boxShadow: '0 0 32px rgba(37,99,235,0.12)' }}
+          >
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg,#2563eb,#7c3aed)', boxShadow: '0 0 20px rgba(99,102,241,0.4)' }}>
+              <Send className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-bold text-base leading-snug">Send a Query to Admin</p>
+              <p className="text-blue-300/70 text-sm mt-0.5">Have a question? Need help with your course? We&apos;re here to help.</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-blue-400/60 flex-shrink-0" />
+          </button>
 
           {/* Tabs + Content */}
           <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(13,24,56,0.9)', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 0 40px rgba(0,0,0,0.5)' }}>
@@ -394,6 +448,69 @@ export default function ProfilePage() {
 
         </div>
       </div>
+
+      {/* Query Modal */}
+      {queryOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+          <div className="relative w-full max-w-md rounded-2xl overflow-hidden"
+            style={{ background: 'linear-gradient(135deg,#0d1b2a,#0f2447,#0d1b2a)', border: '1px solid rgba(99,102,241,0.35)', boxShadow: '0 0 60px rgba(37,99,235,0.25)' }}>
+            <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-600" />
+            <div className="flex items-center justify-between px-6 py-4 border-b border-blue-500/20">
+              <div className="flex items-center gap-2">
+                <Send className="w-5 h-5 text-blue-400" />
+                <h2 className="text-white font-bold text-lg">Send a Query</h2>
+              </div>
+              <button onClick={() => setQueryOpen(false)} className="text-blue-300 hover:text-white transition-colors p-1 rounded-lg hover:bg-blue-500/20">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleQuerySubmit} className="px-6 py-5 space-y-4">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-300 mb-1.5">
+                  <User className="w-3.5 h-3.5" /> Your Name
+                </label>
+                <input type="text" value={queryName} onChange={e => setQueryName(e.target.value)}
+                  placeholder="Enter your name" className="w-full px-4 py-3 rounded-xl text-white placeholder-blue-400/50 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,102,241,0.3)' }} />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-300 mb-1.5">
+                  <Mail className="w-3.5 h-3.5" /> Email
+                </label>
+                <input type="email" value={queryEmail} onChange={e => setQueryEmail(e.target.value)}
+                  placeholder="you@example.com" className="w-full px-4 py-3 rounded-xl text-white placeholder-blue-400/50 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,102,241,0.3)' }} />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-300 mb-1.5">
+                  <MessageSquare className="w-3.5 h-3.5" /> Message
+                </label>
+                <textarea value={queryMessage} onChange={e => setQueryMessage(e.target.value)}
+                  placeholder="Describe your question or issue..." rows={4}
+                  className="w-full px-4 py-3 rounded-xl text-white placeholder-blue-400/50 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,102,241,0.3)' }} />
+              </div>
+              {queryError && (
+                <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm text-red-300" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />{queryError}
+                </div>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setQueryOpen(false)}
+                  className="px-4 py-3 rounded-xl text-blue-300 text-sm font-medium hover:text-white transition-all flex-shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={querySending}
+                  className="flex-1 py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: 'linear-gradient(135deg,#2563eb,#7c3aed)', boxShadow: querySending ? 'none' : '0 0 20px rgba(37,99,235,0.4)' }}>
+                  {querySending ? <><Loader2 className="w-4 h-4 animate-spin" />Sending...</> : <><Send className="w-4 h-4" />Send Query</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

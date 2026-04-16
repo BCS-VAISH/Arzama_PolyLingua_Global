@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Users, MessageSquare, Star, Trash2, LogOut, Loader2, BookOpen,
   BarChart3, TrendingUp, ShieldCheck, CheckCircle, XCircle,
-  Home, Activity, IndianRupee, X, Database, Plus, Pencil,
+  Home, Activity, IndianRupee, X, Database, Plus, Pencil, Send,
 } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 
@@ -19,6 +19,7 @@ type Enrollment = { id: string; userId: string; userName: string; userEmail: str
 type Stats = { totalUsers: number; totalCourses: number; totalReviews: number; totalComments: number; averageRating: number; totalRevenue: number; };
 type PriceModal = { courseId: string; courseName: string; price: number; discount: number; };
 type CourseForm = { id?: string; title: string; description: string; price: string; discount: string; category: string; level: string; duration: string; };
+type ContactQuery = { id: string; fullname: string; email: string; message: string; status: 'new' | 'read' | 'replied'; createdAt: string; };
 
 const COURSES = ['english', 'french', 'portuguese'];
 const COURSE_NAMES: Record<string, string> = {
@@ -34,6 +35,7 @@ const TAB_CONFIG = [
   { key: 'enrollments', label: 'Enrollments',  icon: ShieldCheck,  gradient: 'from-emerald-500 to-green-500',   glow: 'rgba(16,185,129,0.5)',   bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-300' },
   { key: 'reviews',     label: 'Reviews',      icon: Star,         gradient: 'from-amber-500 to-orange-500',    glow: 'rgba(245,158,11,0.5)',   bg: 'bg-amber-500/10',   border: 'border-amber-500/30',   text: 'text-amber-300' },
   { key: 'comments',    label: 'Comments',     icon: MessageSquare,gradient: 'from-pink-500 to-rose-500',       glow: 'rgba(236,72,153,0.5)',   bg: 'bg-pink-500/10',    border: 'border-pink-500/30',    text: 'text-pink-300' },
+  { key: 'queries',     label: 'Queries',      icon: Send,         gradient: 'from-indigo-500 to-blue-500',     glow: 'rgba(99,102,241,0.5)',   bg: 'bg-indigo-500/10',  border: 'border-indigo-500/30',  text: 'text-indigo-300' },
 ] as const;
 
 type TabKey = typeof TAB_CONFIG[number]['key'];
@@ -48,6 +50,7 @@ export default function AdminDashboard() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [contacts, setContacts] = useState<ContactQuery[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +129,8 @@ export default function AdminDashboard() {
         const r = await fetch('/api/admin/comments'); const d = await r.json(); setComments(d.comments);
       } else if (activeTab === 'enrollments') {
         const r = await fetch('/api/admin/enrollments'); const d = await r.json(); setEnrollments(d.enrollments);
+      } else if (activeTab === 'queries') {
+        const r = await fetch('/api/admin/contacts'); const d = await r.json(); setContacts(d.contacts || []);
       }
     } catch { setError('Failed to load data. Please try again.'); }
     finally { setLoadingData(false); }
@@ -758,6 +763,68 @@ export default function AdminDashboard() {
                         </button>
                       </motion.div>
                     ))}
+                  </div>
+                )}
+
+                {/* ── QUERIES ── */}
+                {activeTab === 'queries' && (
+                  <div className="space-y-3">
+                    {contacts.length === 0 && <div className="text-center py-16 text-white/30">No queries yet.</div>}
+                    {contacts.map((q, i) => {
+                      const statusCfg = {
+                        new:     { label: 'New',     color: '#818cf8', bg: 'rgba(99,102,241,0.15)',  border: 'rgba(99,102,241,0.35)' },
+                        read:    { label: 'Read',    color: '#60a5fa', bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.3)' },
+                        replied: { label: 'Replied', color: '#4ade80', bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.3)' },
+                      }[q.status];
+                      return (
+                        <motion.div key={q.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                          className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                              <p className="font-bold text-white text-sm">{q.fullname}</p>
+                              <p className="text-indigo-300/70 text-xs">{q.email}</p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ color: statusCfg.color, background: statusCfg.bg, border: `1px solid ${statusCfg.border}` }}>
+                                {statusCfg.label}
+                              </span>
+                              <span className="text-xs text-white/30">{new Date(q.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                            </div>
+                          </div>
+                          <p className="text-white/70 text-sm leading-relaxed mb-4 whitespace-pre-wrap">{q.message}</p>
+                          <div className="flex gap-2 flex-wrap">
+                            {q.status !== 'read' && (
+                              <button onClick={async () => {
+                                await fetch('/api/admin/contacts', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: q.id, status: 'read' }) });
+                                setContacts(prev => prev.map(c => c.id === q.id ? { ...c, status: 'read' } : c));
+                              }} className="px-3 py-1.5 rounded-xl text-xs font-semibold text-blue-300 transition-all hover:text-white" style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)' }}>
+                                Mark as Read
+                              </button>
+                            )}
+                            {q.status !== 'replied' && (
+                              <button onClick={async () => {
+                                await fetch('/api/admin/contacts', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: q.id, status: 'replied' }) });
+                                setContacts(prev => prev.map(c => c.id === q.id ? { ...c, status: 'replied' } : c));
+                              }} className="px-3 py-1.5 rounded-xl text-xs font-semibold text-green-300 transition-all hover:text-white" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                                Mark as Replied
+                              </button>
+                            )}
+                            <a href={`mailto:${q.email}?subject=Re: Your Query — ARZAMA PolyLingua`}
+                              className="px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-300 transition-all hover:text-white" style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)' }}>
+                              Reply by Email
+                            </a>
+                            <button onClick={async () => {
+                              if (!confirm('Delete this query?')) return;
+                              await fetch('/api/admin/contacts', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: q.id }) });
+                              setContacts(prev => prev.filter(c => c.id !== q.id));
+                              toast.success('Query deleted');
+                            }} className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all ml-auto">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 )}
 
