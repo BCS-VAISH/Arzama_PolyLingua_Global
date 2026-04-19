@@ -74,9 +74,9 @@ export async function GET(req: NextRequest) {
       role: user.role,
     };
 
-    // Redirect to client with token in query (client stores in localStorage)
+    // Redirect to client — pass only non-sensitive userData (NOT the token)
+    // Auth is handled by the httpOnly cookie set below; token never goes in the URL
     const redirectUrl = new URL(`${baseUrl}/api/auth/google/complete`);
-    redirectUrl.searchParams.set('token', token);
     redirectUrl.searchParams.set('user', JSON.stringify(userData));
     redirectUrl.searchParams.set('redirect', state);
 

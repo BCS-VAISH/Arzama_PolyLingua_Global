@@ -3,11 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(req: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
   const { searchParams } = req.nextUrl;
-  const token = searchParams.get('token') || '';
+  // Token is NOT passed in URL — auth is via httpOnly cookie set in callback
+  // Only store non-sensitive user profile data in localStorage for UI
   const user = searchParams.get('user') || '{}';
   const redirect = searchParams.get('redirect') || '/';
 
-  // Return an HTML page that stores token in localStorage then redirects
   const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>Signing in...</title></head>
@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
 <p>Signing you in...</p>
 <script>
   try {
-    localStorage.setItem('authToken', ${JSON.stringify(token)});
     localStorage.setItem('userData', ${JSON.stringify(user)});
+    // authToken intentionally not stored — httpOnly cookie handles auth
   } catch(e) {}
   window.location.href = ${JSON.stringify(redirect === '/' ? baseUrl + '/' : redirect)};
 </script>

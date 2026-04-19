@@ -4,7 +4,29 @@ import User from '@/models/User';
 import { generateToken } from '@/lib/auth';
 import { validateEmail } from '@/lib/validation';
 
+// Simple in-memory rate limiter: max 5 attempts per IP per 15 minutes
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+function checkLoginRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const window = 15 * 60 * 1000; // 15 minutes
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + window });
+    return true;
+  }
+  if (entry.count >= 5) return false;
+  entry.count++;
+  return true;
+}
+
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+  if (!checkLoginRateLimit(ip)) {
+    return NextResponse.json(
+      { error: 'Too many login attempts. Please wait 15 minutes before trying again.' },
+      { status: 429 }
+    );
+  }
   try {
     try {
       await connectDB();
